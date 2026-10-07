@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Before publication, confirm the GitHub namespace and add real URLs/screenshots. -->
+<component type="desktop-application">
+  <id>io.github.tanosx.Panelyra</id>
+  <metadata_license>MIT</metadata_license>
+  <project_license>MIT</project_license>
+  <name>Panelyra</name>
+  <summary>Extend your GNOME desktop to an Android tablet over USB</summary>
+  <summary xml:lang="ru">Используйте Android-планшет как второй экран GNOME по USB</summary>
+  <developer id="io.github.tanosx">
+    <name>TanosX</name>
+  </developer>
+  <description>
+    <p>Panelyra creates an extra monitor in a GNOME Wayland session and sends
+    its image to an Android tablet over a USB cable. Move windows to the tablet
+    and keep using your computer's mouse and keyboard.</p>
+    <p>The Linux desktop app and command-line interface share the same capture
+    engine. USB tethering works without Android developer mode; USB debugging
+    with ADB is available as an alternative.</p>
+    <p>The initial supported setup is Ubuntu 26.04 with GNOME 50 and a Lenovo
+    Tab M10 FHD Plus running Android 10. Other desktops and devices have not
+    been qualified. The Android receiver must be installed separately.</p>
+    <p>Audio and touch input are not transmitted. Video uses H.264 compression.
+    USB display sharing does not require an account or a cloud service.
+    The Linux notification bell can separately check GitHub for new versions
+    and developer news when a public source is configured. Automatic checks
+    can be disabled; updates are not installed automatically.</p>
+    <p xml:lang="ru">Panelyra создаёт дополнительный монитор в сеансе GNOME
+    Wayland и передаёт изображение на Android-планшет по USB. Переносите окна
+    на планшет и пользуйтесь мышью и клавиатурой компьютера.</p>
+    <p xml:lang="ru">Графическое приложение и CLI используют общий движок.
+    USB-модем работает без режима разработчика Android; альтернативный способ
+    подключения — USB-отладка через ADB.</p>
+    <p xml:lang="ru">Проверенная конфигурация: Ubuntu 26.04, GNOME 50 и Lenovo
+    Tab M10 FHD Plus с Android 10. Другие рабочие столы и устройства пока не
+    проверены. Android-приёмник устанавливается отдельно.</p>
+    <p xml:lang="ru">Звук и касания не передаются. Видео сжимается в H.264.
+    Для передачи изображения по USB учётная запись и облачный сервис не требуются.
+    Колокольчик в Linux может отдельно проверять новые версии и новости на GitHub,
+    когда настроен публичный источник. Автоматические проверки можно отключить;
+    обновления не устанавливаются автоматически.</p>
+  </description>
+  <launchable type="desktop-id">io.github.tanosx.Panelyra.desktop</launchable>
+  <provides><binary>panelyra</binary></provides>
+  <categories><category>Utility</category></categories>
+  <content_rating type="oars-1.1"/>
+  <releases>
+    <release version="0.3.0" date="2026-10-06">
+      <description>
+        <p>Introduces the Panelyra desktop interface, command-line tools,
+        Android branding and Linux packaging.</p>
+      </description>
+    </release>
+  </releases>
+</component>

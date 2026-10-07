@@ -1,0 +1,89 @@
+name: Source and package checks
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: checks-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Install test and package tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            python3 python3-gi python3-cairo python3-gi-cairo \
+            gir1.2-gtk-3.0 gir1.2-gstreamer-1.0 \
+            gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly \
+            gstreamer1.0-pipewire gstreamer1.0-libav \
+            desktop-file-utils appstream dpkg-dev xvfb xauth dbus-x11 gjs
+      - name: Python checks
+        run: |
+          /usr/bin/python3 -m compileall -q usbdisplay scripts tests
+          /usr/bin/python3 scripts/validate-announcements.py
+          dbus-run-session -- xvfb-run -a /usr/bin/python3 -m unittest discover -s tests -v
+          ./panelyra --help
+          ./panelyra --version
+      - name: Window restoration policy checks
+        run: gjs -m tests/window-restore-tests.js
+      - name: Synthetic H.264 round trip and lock recovery
+        run: |
+          /usr/bin/python3 scripts/smoke_test.py --width 1600 --height 1000 \
+            --fps 30 --capture-fps 60 --quality 18
+          /usr/bin/python3 scripts/smoke_test.py --lock-cycle --width 1600 --height 1000 \
+            --fps 30 --capture-fps 60 --quality 18
+      - name: Validate preview metadata
+        run: |
+          desktop-file-validate packaging/io.github.tanosx.Panelyra.desktop
+          # No public homepage exists yet. This scoped preview exception is a
+          # release blocker, not store validation; see docs/distribution.md.
+          appstreamcli validate --no-net --override=url-homepage-missing=info \
+            packaging/io.github.tanosx.Panelyra.metainfo.xml
+      - name: Build preview Debian package
+        run: |
+          /usr/bin/python3 scripts/build-deb.py --output-dir out
+          dpkg-deb --info out/panelyra_*.deb
+          dpkg-deb --contents out/panelyra_*.deb
+
+  android:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Set up Java 17
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Check video, language control and USB selection
+        run: PANELYRA_TEST_NETWORK=1 android/tests/run.sh
+      - name: Set up Gradle 8.9
+        uses: gradle/actions/setup-gradle@4c125117fe7c5aed11272ec4213f602f012f89f2 # v5
+        with:
+          gradle-version: '8.9'
+          cache-disabled: true
+      - name: Install Android SDK packages
+        run: |
+          test -n "$ANDROID_HOME"
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+            'platforms;android-35' 'build-tools;35.0.0'
+      - name: Compile debug companion
+        working-directory: android
+        run: gradle --no-daemon :app:assembleDebug
+      # Deliberately no signing secrets, artifact upload or release publication.

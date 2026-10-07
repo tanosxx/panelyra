@@ -1,0 +1,50 @@
+name: Bug report / Ошибка
+description: Report a reproducible Panelyra problem / Сообщить об ошибке
+body:
+  - type: markdown
+    attributes:
+      value: |
+        English and Russian are welcome. Read SECURITY.md before reporting a
+        vulnerability. Remove private data from logs and screenshots.
+  - type: input
+    id: version
+    attributes:
+      label: Panelyra version
+      description: Output of panelyra --version, or source revision.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Linux and Android environment
+      description: Distribution, GNOME version, Wayland/X11, tablet model and Android version.
+    validations:
+      required: true
+  - type: dropdown
+    id: transport
+    attributes:
+      label: Connection
+      options:
+        - USB tethering
+        - USB ADB
+        - No device / local test
+    validations:
+      required: true
+  - type: input
+    id: mode
+    attributes:
+      label: Video mode
+      description: Resolution, transmitted FPS, capture FPS and quality/bitrate mode.
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps, expected result and actual result
+      description: For picture issues, say whether the cursor, picture or whole app freezes.
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Relevant diagnostics
+      description: doctor / start --stats output, with addresses, serial numbers and private content removed.
+      render: text

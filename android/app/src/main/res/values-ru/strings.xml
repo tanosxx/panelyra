@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Panelyra</string>
+    <string name="empty"></string>
+    <string name="app_subtitle">Ещё один экран.\nВсего один USB-кабель.</string>
+    <string name="step_cable">Подключите планшет к компьютеру</string>
+    <string name="step_tether">Включите USB-модем в настройках Android</string>
+    <string name="step_start">Запустите Panelyra на компьютере с Linux</string>
+    <string name="connection_label">ВАШ ВТОРОЙ ЭКРАН</string>
+    <string name="connection_usb">USB-МОДЕМ</string>
+    <string name="connection_adb">ADB ПО USB</string>
+    <string name="search_title">Поиск USB…</string>
+    <string name="search_message">Проверяем подключение к компьютеру.</string>
+    <string name="usb_ready_title">Готов к подключению</string>
+    <string name="usb_ready_message">Запустите передачу на компьютере с Linux. Рабочий стол появится здесь автоматически. Отладка по USB не нужна.</string>
+    <string name="adb_wait_title">Подключите планшет</string>
+    <string name="adb_wait_message">Включите USB-модем в настройках подключения Android. Для работы через ADB включите отладку по USB и разрешите доступ своему компьютеру.</string>
+    <string name="open_settings">Настройки подключения</string>
+    <string name="refresh">Обновить подключение</string>
+    <string name="settings_unavailable">Откройте настройки Android и включите USB-модем.</string>
+    <string name="connected_title">Подключение установлено</string>
+    <string name="connected_message">Компьютер подключён. Ожидаем изображение…</string>
+    <string name="error_title">Не удалось подключиться</string>
+    <string name="listener_error">Включите USB-модем и обновите подключение.\n\n%1$s</string>
+    <string name="stopped_title">Можно подключиться снова</string>
+    <string name="stopped_message">%1$s\n\nЗапустите передачу на компьютере ещё раз. Если режим USB изменился, обновите подключение.</string>
+    <string name="error_eof">Компьютер завершил передачу.</string>
+    <string name="error_timeout">Нет данных от компьютера более 10 секунд.</string>
+    <string name="diagnostic">Диагностика: %1$s</string>
+</resources>

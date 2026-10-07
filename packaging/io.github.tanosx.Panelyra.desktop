@@ -1,0 +1,16 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Panelyra
+GenericName=Tablet display
+GenericName[ru]=Планшет как второй экран
+Comment=Extend your GNOME desktop to an Android tablet over USB
+Comment[ru]=Расширить рабочий стол GNOME на Android-планшет по USB
+Exec=panelyra gui
+Icon=io.github.tanosx.Panelyra
+Terminal=false
+Categories=Utility;
+Keywords=tablet;USB;display;screen;monitor;
+Keywords[ru]=планшет;USB;дисплей;экран;монитор;
+StartupNotify=true
+StartupWMClass=io.github.tanosx.Panelyra

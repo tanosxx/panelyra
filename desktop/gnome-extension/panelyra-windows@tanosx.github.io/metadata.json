@@ -1,0 +1,8 @@
+{
+  "uuid": "panelyra-windows@tanosx.github.io",
+  "name": "Panelyra Window Restore",
+  "description": "Remembers Panelyra monitor windows before locking and restores them after reconnecting.",
+  "shell-version": ["50"],
+  "session-modes": ["user", "unlock-dialog"],
+  "version": 1
+}

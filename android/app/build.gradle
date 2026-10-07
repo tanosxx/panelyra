@@ -1,0 +1,61 @@
+plugins {
+    id 'com.android.application'
+}
+
+def releaseSigning = [
+    store: System.getenv('PANELYRA_KEYSTORE'),
+    alias: System.getenv('PANELYRA_KEY_ALIAS'),
+    storePassword: System.getenv('PANELYRA_STORE_PASSWORD'),
+    keyPassword: System.getenv('PANELYRA_KEY_PASSWORD')
+]
+def hasReleaseSigning = releaseSigning.values().every { it != null && !it.isEmpty() }
+
+android {
+    namespace 'dev.usbdisplay.client'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'dev.usbdisplay.client'
+        minSdk 19
+        targetSdk 35
+        versionCode 4
+        versionName '0.3.0'
+    }
+
+    // Adaptive resources need API26+ tools; the small API23 builder uses main/res only.
+    sourceSets.main.res.srcDirs += 'src/modern/res'
+
+    signingConfigs {
+        if (hasReleaseSigning) {
+            release {
+                storeFile file(releaseSigning.store)
+                storePassword releaseSigning.storePassword
+                keyAlias releaseSigning.alias
+                keyPassword releaseSigning.keyPassword
+            }
+        }
+    }
+    buildTypes {
+        release {
+            debuggable false
+            minifyEnabled false
+            if (hasReleaseSigning) signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+}
+
+// A distributable release must never silently fall back to a debug/unsigned APK.
+gradle.taskGraph.whenReady { graph ->
+    def packagingRelease = graph.allTasks.any {
+        it.project == project && it.name in ['packageRelease', 'bundleRelease']
+    }
+    if (packagingRelease && !hasReleaseSigning) {
+        throw new GradleException('Release signing requires PANELYRA_KEYSTORE, PANELYRA_KEY_ALIAS, ' +
+                'PANELYRA_STORE_PASSWORD and PANELYRA_KEY_PASSWORD environment variables.')
+    }
+}

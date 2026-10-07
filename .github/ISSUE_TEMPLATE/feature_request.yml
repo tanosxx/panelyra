@@ -1,0 +1,17 @@
+name: Feature request / Предложение
+description: Suggest a focused improvement / Предложить улучшение
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What would this help you do?
+      description: Describe your workflow and the problem you encounter. English or Russian is welcome.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Explain the change, alternatives considered and affected platforms.
+    validations:
+      required: true

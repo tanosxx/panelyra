@@ -1,0 +1,19 @@
+Package: panelyra
+Version: @VERSION@
+Section: utils
+Priority: optional
+Architecture: all
+Maintainer: @MAINTAINER@
+Installed-Size: @INSTALLED_SIZE@
+Depends: python3 (>= 3.10), python3-gi, python3-cairo, python3-gi-cairo, gir1.2-gtk-3.0, gir1.2-gstreamer-1.0, gstreamer1.0-pipewire, gstreamer1.0-plugins-base, gstreamer1.0-plugins-good, gstreamer1.0-plugins-ugly, iproute2
+Recommends: network-manager, ca-certificates
+Suggests: adb, gstreamer1.0-libav
+Description: Extend a GNOME Wayland desktop to an Android tablet over USB
+ Panelyra creates a virtual monitor and streams H.264 video to its Android
+ receiver using USB tethering or ADB. Includes a graphical desktop app and
+ a command-line interface. The receiver is installed separately by default.
+ .
+ The qualified setup is Ubuntu 26.04 with GNOME 50 and Lenovo TB-X606X on
+ Android 10. Other desktop environments are not supported. Audio and touch
+ input are not transmitted. Requires an active, unlocked GNOME Wayland
+ desktop session; this is not a headless display server.

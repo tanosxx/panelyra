@@ -1,0 +1,8 @@
+#!/bin/sh
+set -eu
+cd -- "$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+if [ -x .tools/bin/adb ]; then
+    PATH="$PWD/.tools/bin:$PATH"
+    export PATH
+fi
+exec /usr/bin/python3 -m usbdisplay "$@"

@@ -1,0 +1,17 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Panelyra
+GenericName=Tablet display
+GenericName[ru]=Планшет как второй экран
+Comment=Give your Android tablet a second life as a USB display
+Comment[ru]=Дайте Android-планшету вторую жизнь в роли USB-экрана
+Exec=@EXEC@ gui
+Path=@PATH@
+Icon=@ICON@
+Terminal=false
+Categories=Utility;
+StartupNotify=true
+StartupWMClass=io.github.tanosx.Panelyra
+Keywords=tablet;USB;display;screen;monitor;
+Keywords[ru]=планшет;USB;дисплей;экран;монитор;

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Panelyra</string>
+    <string name="empty"></string>
+    <string name="app_subtitle">An extra screen.\nJust one USB cable.</string>
+    <string name="step_cable">Connect the tablet to your computer</string>
+    <string name="step_tether">Enable USB tethering in Android settings</string>
+    <string name="step_start">Start Panelyra on your Linux computer</string>
+    <string name="connection_label">YOUR SECOND SCREEN</string>
+    <string name="connection_usb">USB TETHERING</string>
+    <string name="connection_adb">ADB OVER USB</string>
+    <string name="search_title">Looking for USB…</string>
+    <string name="search_message">Checking the connection to your computer.</string>
+    <string name="usb_ready_title">Ready to connect</string>
+    <string name="usb_ready_message">Start the stream on your Linux computer. Your desktop will appear here automatically. No USB debugging needed.</string>
+    <string name="adb_wait_title">Connect your tablet</string>
+    <string name="adb_wait_message">Enable USB tethering in Android connection settings. If you prefer ADB, enable USB debugging and authorize your computer.</string>
+    <string name="open_settings">Connection settings</string>
+    <string name="refresh">Refresh connection</string>
+    <string name="settings_unavailable">Open Android settings and enable USB tethering.</string>
+    <string name="connected_title">Your screen is on its way</string>
+    <string name="connected_message">Connected to your computer. Waiting for the first frame…</string>
+    <string name="error_title">Connection unavailable</string>
+    <string name="listener_error">Enable USB tethering, then refresh the connection.\n\n%1$s</string>
+    <string name="stopped_title">Ready when you are</string>
+    <string name="stopped_message">%1$s\n\nStart the stream again on your computer. If you changed the USB mode, refresh the connection.</string>
+    <string name="error_eof">The computer stopped streaming.</string>
+    <string name="error_timeout">No data received from the computer for 10 seconds.</string>
+    <string name="diagnostic">Details: %1$s</string>
+</resources>

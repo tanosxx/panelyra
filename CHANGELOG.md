@@ -21,6 +21,9 @@
   sections; the tablet Internet control is in **Settings → Connection**.
 - Compact layout and wrapping labels prevent device details, Internet state,
   expanded sections and language changes from enlarging the window.
+- Refreshed English/Russian Linux screenshots for the Connection tab, each
+  settings section and Android app installation, with collapsible README
+  galleries using sample device values.
 
 ## 0.3.0 — source preview, 2026-10-07
 

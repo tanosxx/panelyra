@@ -28,7 +28,32 @@ CLI share the same video engine; a small Android app receives the picture.
 - A Linux notification bell for new versions and developer news, with optional
   GitHub checks once the public source is configured.
 
-![Panelyra on Linux](docs/images/linux-en.png)
+![Panelyra on Linux — Connection tab](docs/images/linux-en.png)
+
+The **Connection** tab keeps tablet details, connection help and the log together.
+Screenshots use sample device values.
+
+<details>
+<summary>Explore settings and Android app installation</summary>
+
+**Settings → Connection** — choose the connection method and toggle Internet
+access through the tablet.
+
+![Connection settings](docs/images/linux-settings-network-en.png)
+
+**Settings → Picture** — adjust resolution, frame rate and image quality.
+
+![Picture settings](docs/images/linux-settings-picture-en.png)
+
+**Settings → General** — choose the interface language and automatic connection.
+
+![General settings](docs/images/linux-settings-general-en.png)
+
+**Android app** — share the companion APK with the tablet over USB.
+
+![Android app installation](docs/images/linux-android-app-en.png)
+
+</details>
 
 ## Status and compatibility
 

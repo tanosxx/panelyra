@@ -19,7 +19,7 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 ROOT_FILES = {
-    "README.md", "LICENSE", "CONTRIBUTING.md", "SECURITY.md", "CHANGELOG.md",
+    "README.md", "LICENSE", "CONTRIBUTING.md", "SECURITY.md", "CHANGELOG.md", "AGENTS.md",
     "pyproject.toml", ".gitignore", "panelyra", "usb-display", "usb-display-launcher",
     "announcements.json",
 }

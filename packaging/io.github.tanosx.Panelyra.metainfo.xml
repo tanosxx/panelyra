@@ -45,6 +45,14 @@
   <categories><category>Utility</category></categories>
   <content_rating type="oars-1.1"/>
   <releases>
+    <release version="0.4.0" date="2026-10-08" type="development">
+      <description>
+        <p>Toggle Internet access through the tablet from Settings in the Linux app
+        while preserving the USB display connection.</p>
+        <p>A compact layout separates Connection and Settings tabs while keeping
+        stream controls visible.</p>
+      </description>
+    </release>
     <release version="0.3.0" date="2026-10-06">
       <description>
         <p>Introduces the Panelyra desktop interface, command-line tools,

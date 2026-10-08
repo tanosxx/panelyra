@@ -12,7 +12,7 @@ before submission; publication status must remain accurate.
 | Requested package/store name | `panelyra` (availability must be checked when registering) |
 | Linux application ID | `io.github.tanosx.Panelyra` (confirm namespace ownership) |
 | Author | TanosX |
-| Initial release | 0.3.0 |
+| Initial release | 0.4.0 |
 | Application / artwork license | MIT |
 | AppStream metadata license | MIT |
 | Suggested Snap categories | Utilities, Productivity |

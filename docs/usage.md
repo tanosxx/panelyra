@@ -13,6 +13,13 @@ Open Panelyra on Linux, select a video mode and connect. Set the monitor's
 position in GNOME Settings → Displays after connecting. The resolution belongs
 to the Panelyra connection; monitor placement belongs to GNOME.
 
+The Linux window has two tabs. **Connection** contains the tablet status,
+connection help, the Android app download button and the connection log.
+**Settings** groups image, connection and general preferences. Each tab scrolls
+independently when needed; switching tabs or expanding a section does not enlarge
+the window. The stream status and **Connect tablet / Stop** buttons remain
+visible below both tabs.
+
 Locking the PC displays an animated lock screen on the tablet, with a glowing
 orb, drifting particles and the PC's local clock. The animation is rendered on
 the PC and requires no Android update. If Cairo is unavailable, Panelyra shows
@@ -31,7 +38,7 @@ tethering is enabled, with a prompt to enable it. Device names come from USB
 descriptors, so some tablets expose only a generic Android name. This check does
 not open a video connection or require USB debugging.
 
-Choose **More options → Language** to switch between English, Russian and the
+Choose **Settings → General → Language** to switch between English, Russian and the
 system language. The window updates immediately, including while a stream is
 running. Your choice is saved for the next launch. When the GUI connects, it also
 sends that language to Android. Subsequent changes apply to Android during the
@@ -207,6 +214,21 @@ unrelated to a tablet. No address is hard-coded.
 not enable tethering on Android. If tethering was enabled after the Android app
 opened, refresh the app's connection display or reopen it.
 
+Open **Settings → Connection → Internet via tablet**. Click **Turn off**
+to remove the tablet's Internet default routes and DNS contribution while keeping
+its local USB display connection. Click **Turn on** to restore the previous
+settings. It is available during streaming and does not require an Android update.
+
+**Allowed** means the PC may use the tablet for Internet access; routing priorities
+still decide which connection carries traffic. When it is off, another PC
+connection such as Wi-Fi is needed for Internet access. This changes only the
+current USB connection, until it reconnects. Closing Panelyra leaves the chosen
+state in place, and reopening it reads the actual state. The saved NetworkManager
+profile is not edited. A connection disabled earlier with `configure-usb` can
+also be enabled here. With multiple USB tethers, the control is unavailable so it
+cannot accidentally change a different tablet. NetworkManager may request normal
+desktop authorization; a rejected change leaves the previous state displayed.
+
 `configure-usb` uses NetworkManager to temporarily remove the tablet's default
 route and DNS contribution. It preserves the local subnet and does not edit the
 saved profile. It may require desktop authorization under the machine's normal
@@ -221,7 +243,7 @@ or Ethernet connection.
 
    ```bash
    sudo apt install adb
-   ./panelyra install --apk out/panelyra-0.3.0-android-debug.apk
+   ./panelyra install --apk out/panelyra-0.4.0-android-debug.apk
    ./panelyra doctor --transport adb
    ```
 

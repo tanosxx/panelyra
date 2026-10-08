@@ -72,7 +72,8 @@ class NotificationWidgetsTests(unittest.TestCase):
     def make_center(self, *, notices=(), checked_at=1, source=None, fetcher=None, store=None):
         source = self.source if source is None else source
         if store is None:
-            store = Store(path=self.path, source=source)
+            # Keep the simulated installed version stable as the app advances.
+            store = Store(path=self.path, source=source, current_version="0.3.0")
             if notices:
                 store.replace_notices(list(notices), checked_at=checked_at)
         center = notifications_ui.NotificationCenter(

@@ -155,7 +155,7 @@ exec /usr/bin/panelyra gui "$@"
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--version", default="0.3.0")
+    parser.add_argument("--version", default="0.4.0")
     parser.add_argument("--output-dir", type=Path, default=ROOT / "out")
     parser.add_argument("--maintainer", default=LOCAL_MAINTAINER)
     parser.add_argument("--homepage", help="actual public HTTPS project URL")

@@ -23,6 +23,8 @@ CLI share the same video engine; a small Android app receives the picture.
 - Automatic display reconnection after unlocking GNOME, with an animated local
   lock screen: a glowing orb, drifting particles and the PC's local clock.
 - Optional GNOME 50 extension to return still-open tablet windows after unlocking.
+- One-button control of Internet access through the tablet, without stopping the
+  USB display. The previous route and DNS settings can be restored.
 - A Linux notification bell for new versions and developer news, with optional
   GitHub checks once the public source is configured.
 
@@ -30,15 +32,15 @@ CLI share the same video engine; a small Android app receives the picture.
 
 ## Status and compatibility
 
-**0.3.0 is a pre-release preparation, not an App Center listing.** Source, package
-recipes and documentation are provided here. A public repository, signed release
-artifacts and store approval are separate release steps; see the
+**0.4.0 is a pre-release preparation, not an App Center listing.** Source, package
+recipes and documentation are provided in the [public repository](https://github.com/tanosxx/panelyra).
+Signed release artifacts and store approval are separate release steps; see the
 [distribution guide](docs/distribution.md).
 
 The notification source is not configured in this unpublished build, so the
 bell makes no Internet requests. USB display sharing works offline. The
 [news guide](docs/notifications.md) explains how a publisher enables the source
-and sends messages after creating the repository.
+and sends messages through the repository.
 
 | Component | Current scope |
 | --- | --- |
@@ -149,7 +151,7 @@ the exact path. Changed extension code also needs a logout/login to load.
    The same download server is available from the CLI:
 
    ```bash
-   ./panelyra serve-apk --apk out/panelyra-0.3.0-android-debug.apk
+   ./panelyra serve-apk --apk out/panelyra-0.4.0-android-debug.apk
    ```
 
    The local server serves only the APK and its landing page. Use **Stop server**

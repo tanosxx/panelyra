@@ -18,8 +18,8 @@ android {
         applicationId 'dev.usbdisplay.client'
         minSdk 19
         targetSdk 35
-        versionCode 4
-        versionName '0.3.0'
+        versionCode 5
+        versionName '0.4.0'
     }
 
     // Adaptive resources need API26+ tools; the small API23 builder uses main/res only.

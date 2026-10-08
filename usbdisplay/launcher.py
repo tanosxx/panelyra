@@ -17,6 +17,7 @@ from . import APP_ID, __version__
 from . import runtime
 from .devices import discover_devices
 from .download_ui import DownloadPanel
+from .internet_ui import InternetPanel
 from .language import resolve_language
 from .notifications_ui import NotificationCenter
 from .settings import PRESETS, Settings, load, save
@@ -51,7 +52,7 @@ def running_stream():
 CSS = b'''
 .panelyra { background: #111927; color: #f5f7fc; }
 .panelyra headerbar { background: #111927; border-bottom: 1px solid #29344a; color: #f5f7fc; }
-.panelyra .headline { font-size: 27px; font-weight: 800; }
+.panelyra .headline { font-size: 24px; font-weight: 800; }
 .panelyra .section-title { font-size: 16px; font-weight: 700; }
 .panelyra .muted { color: #a5b1c6; }
 .panelyra .tiny { font-size: 11px; }
@@ -74,6 +75,12 @@ CSS = b'''
 .panelyra spinbutton button.up { border-radius: 0 7px 7px 0; }
 .panelyra .device-name { font-size: 15px; font-weight: 700; }
 .panelyra .device-detail { color: #a5b1c6; font-size: 12px; }
+.panelyra button.internet-toggle { padding: 6px 10px; }
+.panelyra button.compact { padding: 6px 10px; }
+.panelyra .page-switcher button { background: transparent; border-color: transparent; padding: 9px 24px; color: #a5b1c6; }
+.panelyra .page-switcher button:checked { background: #303552; border-color: #514d7b; color: #f5f7fc; }
+.panelyra scrollbar { background: transparent; }
+.panelyra scrollbar slider { background: #43506a; border: none; border-radius: 6px; min-width: 6px; min-height: 30px; }
 .panelyra.notification-popover { background: #111927; border: 1px solid #39465e; }
 .panelyra .notification-count { background: #746bff; color: #ffffff; border-radius: 9px; padding: 1px 5px; font-size: 11px; font-weight: 700; }
 .panelyra .notification-card { background: #1a2435; border: 1px solid #2b374e; border-radius: 10px; padding: 10px; }
@@ -142,6 +149,7 @@ class Launcher(Gtk.Application):
                 self.device_waiting.set_text(self.tr('Checking USB devices…', 'Проверяем USB-устройства…'))
             self.notifications.render()
             self.downloads.render()
+            self.internet.render()
         finally:
             self.updating = previous
 
@@ -169,6 +177,7 @@ class Launcher(Gtk.Application):
         self.bind_text(item.set_text, text)
         if wrap:
             item.set_line_wrap(True)
+            item.set_line_wrap_mode(Pango.WrapMode.WORD_CHAR)
             item.set_max_width_chars(47)
         if style:
             self.style(item, style)
@@ -194,8 +203,8 @@ class Launcher(Gtk.Application):
 
     def build_window(self):
         self.window = Gtk.ApplicationWindow(application=self, title='Panelyra')
-        self.window.set_default_size(880, 820)
-        self.window_geometry = WindowGeometry(self.window, (880, 820))
+        self.window.set_default_size(780, 760)
+        self.window_geometry = WindowGeometry(self.window, (780, 760))
         self.window.set_icon_from_file(str(ASSETS / 'panelyra-128.png'))
         self.style(self.window, 'panelyra')
         self.window.connect('delete-event', self.on_close)
@@ -213,47 +222,68 @@ class Launcher(Gtk.Application):
         self.notifications = NotificationCenter(self)
         header.pack_end(self.notifications.button)
         self.window.set_titlebar(header)
+        body = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14)
+        body.set_border_width(20)
+        self.window.add(body)
+        self.pages = Gtk.Stack()
+        self.pages.set_homogeneous(True)
+        self.pages.set_transition_type(Gtk.StackTransitionType.CROSSFADE)
+        self.pages.set_transition_duration(120)
+        switcher = self.style(Gtk.StackSwitcher(stack=self.pages), 'page-switcher')
+        switcher.set_halign(Gtk.Align.CENTER)
+        body.pack_start(switcher, False, False, 0)
+        body.pack_start(self.pages, True, True, 0)
+        connection = self.add_page('connection', ('Connection', 'Подключение'))
+        preferences = self.add_page('settings', ('Settings', 'Настройки'))
+        self.build_connection_page(connection)
+        self.build_settings_page(preferences)
+        self.build_footer(body)
+
+    def add_page(self, name, title):
+        # Each page scrolls independently. Hidden content and expanded options
+        # must never enlarge the window or push connection controls off-screen.
         scroll = Gtk.ScrolledWindow()
         scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-        self.window.add(scroll)
-        body = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=18)
-        body.set_border_width(24)
-        scroll.add(body)
+        scroll.set_overlay_scrolling(False)
+        scroll.set_propagate_natural_width(False)
+        scroll.set_propagate_natural_height(False)
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14)
+        content.set_margin_end(4)
+        scroll.add(content)
+        self.pages.add_named(scroll, name)
+        self.bind_text(lambda text: self.pages.child_set_property(scroll, 'title', text), title)
+        return content
 
-        hero = self.style(Gtk.Box(spacing=18), 'hero')
-        hero.set_border_width(0)
-        image = Gtk.Image.new_from_file(str(ASSETS / 'panelyra-128.png'))
-        image.set_margin_start(20)
-        image.set_margin_top(14)
-        image.set_margin_bottom(14)
+    def build_connection_page(self, body):
+        hero = self.style(Gtk.Box(spacing=16), 'hero')
+        image = Gtk.Image.new_from_file(str(ASSETS / 'panelyra-64.png'))
+        image.set_margin_start(18)
         hero.pack_start(image, False, False, 0)
-        intro = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        intro.set_margin_top(20)
-        intro.set_margin_bottom(20)
-        intro.set_margin_end(20)
-        intro.pack_start(self.label(('YOUR TABLET, REIMAGINED', 'ВАШ ПЛАНШЕТ МОЖЕТ БОЛЬШЕ'), 'eyebrow'), False, False, 0)
-        intro.pack_start(self.label(('Room for one more idea.', 'Место для новой идеи.'), 'headline'), False, False, 0)
+        intro = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        intro.set_margin_top(18)
+        intro.set_margin_bottom(18)
+        intro.set_margin_end(18)
+        intro.pack_start(self.label(('YOUR TABLET, REIMAGINED', 'ВАШ ПЛАНШЕТ МОЖЕТ БОЛЬШЕ'), 'eyebrow', True), False, False, 0)
+        intro.pack_start(self.label(('Room for one more idea.', 'Место для новой идеи.'), 'headline', True), False, False, 0)
         intro.pack_start(self.label(('Extend your Linux desktop over one USB cable.', 'Расширьте рабочий стол Linux одним USB-кабелем.'), 'muted', True), False, False, 0)
         hero.pack_start(intro, True, True, 0)
         body.pack_start(hero, False, False, 0)
 
-        columns = Gtk.Box(spacing=18)
-        body.pack_start(columns, False, False, 0)
-        card, connect = self.card()
-        card.set_size_request(245, -1)
-        columns.pack_start(card, False, False, 0)
+        card, connect = self.card(spacing=8)
+        body.pack_start(card, False, False, 0)
         device_header = Gtk.Box(spacing=8)
         device_header.pack_start(self.label(('Connected device', 'Устройство'), 'section-title'), True, True, 0)
         refresh = Gtk.Button.new_from_icon_name('view-refresh-symbolic', Gtk.IconSize.MENU)
+        self.style(refresh, 'compact')
         self.localized(refresh, 'tooltip-text', ('Refresh devices', 'Обновить список устройств'))
         refresh.connect('clicked', lambda _: self.refresh_devices())
         device_header.pack_end(refresh, False, False, 0)
         connect.pack_start(device_header, False, False, 0)
-        self.device_rows = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        self.device_rows = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
         self.device_waiting = self.label(self.tr('Checking USB devices…', 'Проверяем USB-устройства…'), 'muted', True)
-        self.device_waiting.set_max_width_chars(23)
         self.device_rows.pack_start(self.device_waiting, False, False, 0)
         connect.pack_start(self.device_rows, False, False, 0)
+        connect.pack_start(Gtk.Separator(), False, False, 2)
         setup = self.localized(Gtk.Expander(), 'label', ('How to connect', 'Как подключить'))
         steps_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
         steps_box.set_margin_top(12)
@@ -266,21 +296,45 @@ class Launcher(Gtk.Application):
             badge.set_valign(Gtk.Align.START)
             row.pack_start(badge, False, False, 0)
             step = self.label(text, 'muted', True)
-            step.set_max_width_chars(23)
             row.pack_start(step, True, True, 0)
             steps_box.pack_start(row, False, False, 2)
         setup.add(steps_box)
         connect.pack_start(setup, False, False, 0)
-        connect.pack_start(self.label(('USB only · no cloud · no account', 'По USB · без облака · без аккаунта'), 'tiny', True), False, False, 6)
         help_button = self.style(self.localized(Gtk.Button(), 'label', ('Connection help', 'Помощь с подключением')), 'link')
         help_button.connect('clicked', self.help)
-        connect.pack_start(help_button, False, False, 0)
+        support = Gtk.Box(spacing=12)
+        support.pack_start(help_button, False, False, 0)
         self.downloads = DownloadPanel(self)
-        connect.pack_start(self.downloads.button, False, False, 0)
+        self.style(self.downloads.button, 'compact')
+        support.pack_end(self.downloads.button, False, False, 0)
+        connect.pack_start(support, False, False, 0)
+
+        self.details = self.localized(Gtk.Expander(), 'label', ('Connection log','Журнал подключения'))
+        log_scroll = Gtk.ScrolledWindow()
+        log_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        log_scroll.set_min_content_height(120)
+        view = Gtk.TextView(editable=False,cursor_visible=False,wrap_mode=Gtk.WrapMode.WORD_CHAR)
+        self.log = view.get_buffer()
+        log_scroll.add(view)
+        self.details.add(log_scroll)
+        body.pack_start(self.details, False, False, 0)
+
+    def build_settings_page(self, body):
+        card, connection = self.card()
+        body.pack_start(card, False, False, 0)
+        connection.pack_start(self.label(('Connection', 'Подключение'), 'section-title'), False, False, 0)
+        row = Gtk.Box(spacing=12)
+        row.pack_start(self.label(('Connection method', 'Способ подключения'), 'muted', True), True, True, 0)
+        self.transport = self.combo([('usb', 'USB'), ('adb', 'ADB'), ('auto', ('Automatic', 'Автоматически'))], self.settings.transport)
+        row.pack_end(self.transport, False, False, 0)
+        connection.pack_start(row, False, False, 0)
+        connection.pack_start(Gtk.Separator(), False, False, 2)
+        self.internet = InternetPanel(self)
+        connection.pack_start(self.internet.widget, False, False, 0)
 
         card, settings = self.card()
-        columns.pack_start(card, True, True, 0)
-        settings.pack_start(self.label(('Make it yours', 'Настройте под себя'), 'section-title'), False, False, 0)
+        body.pack_start(card, False, False, 0)
+        settings.pack_start(self.label(('Picture', 'Изображение'), 'section-title'), False, False, 0)
         self.profile = self.combo([
             ('balanced', ('Balanced — everyday work', 'Баланс — на каждый день')),
             ('economy', ('Lightweight — older tablets', 'Лёгкий — для слабого планшета')),
@@ -288,6 +342,7 @@ class Launcher(Gtk.Application):
             ('custom', ('Custom settings', 'Свои настройки'))], self.detect_profile())
         settings.pack_start(self.profile, False, False, 0)
         grid = Gtk.Grid(column_spacing=14, row_spacing=7)
+        grid.set_column_homogeneous(True)
         settings.pack_start(grid, False, False, 0)
         self.width = Gtk.SpinButton.new_with_range(160, 2560, 2)
         self.height = Gtk.SpinButton.new_with_range(160, 2560, 2)
@@ -305,6 +360,8 @@ class Launcher(Gtk.Application):
         size_row.pack_start(self.height, True, True, 0)
         self.fps = self.combo([(str(n), (f'{n} fps · experimental', f'{n} fps · эксперимент')
                                if n == 60 else f'{n} fps') for n in (15,20,30,60)], self.settings.fps)
+        size_row.set_hexpand(True)
+        self.fps.set_hexpand(True)
         if self.fps.get_active_id() is None:
             self.fps.append(str(self.settings.fps), f'{self.settings.fps} fps')
             self.fps.set_active_id(str(self.settings.fps))
@@ -322,30 +379,33 @@ class Launcher(Gtk.Application):
         settings.pack_start(self.quality, False, False, 0)
         self.controls.append(self.quality)
         extra = self.localized(Gtk.Expander(), 'label', ('More options', 'Дополнительно'))
-        extras = Gtk.Grid(column_spacing=12, row_spacing=10)
+        extras = Gtk.Box(spacing=12)
         extras.set_margin_top(12)
-        self.transport = self.combo([('usb', 'USB'), ('adb', 'ADB'), ('auto', ('Automatic', 'Автоматически'))], self.settings.transport)
         self.capture = Gtk.SpinButton.new_with_range(5,60,1)
         self.capture.set_value(self.settings.capture_fps)
         self.capture.set_width_chars(2)
         self.capture.set_max_width_chars(2)
         self.controls.append(self.capture)
+        extras.pack_start(self.label(('PC capture rate', 'Частота захвата ПК'), 'muted', True), True, True, 0)
+        extras.pack_end(self.capture, False, False, 0)
+        extra.add(extras)
+        settings.pack_start(extra, False, False, 0)
+
+        card, general = self.card()
+        body.pack_start(card, False, False, 0)
+        general.pack_start(self.label(('General', 'Общие'), 'section-title'), False, False, 0)
+        row = Gtk.Box(spacing=12)
+        row.pack_start(self.label(('Language', 'Язык'), 'muted'), True, True, 0)
         self.language = self.combo([('auto',('System language','Язык системы')),('ru','Русский'),('en','English')],self.settings.language)
         # Language can change on both devices without restarting a stream.
         self.controls.remove(self.language)
+        row.pack_end(self.language, False, False, 0)
+        general.pack_start(row, False, False, 0)
+        general.pack_start(self.label(('Changes immediately on this PC.\nThe tablet follows when connected.',
+                                     'На ПК язык меняется сразу.\nНа планшете — при подключении.'), 'tiny', True), False, False, 0)
         self.autoconnect = self.localized(Gtk.CheckButton(), 'label', ('Connect when opened', 'Подключать при запуске'))
         self.autoconnect.set_active(self.settings.auto_connect)
-        for row,(title,control) in enumerate([
-            (('Connection','Подключение'),self.transport),
-            (('PC capture rate','Частота захвата ПК'),self.capture),
-            (('Language','Язык'),self.language)]):
-            extras.attach(self.label(title,'muted'),0,row,1,1)
-            extras.attach(control,1,row,1,1)
-        extras.attach(self.autoconnect,0,3,2,1)
-        extras.attach(self.label(('Changes immediately on this PC.\nThe tablet follows when connected.',
-                                 'На ПК язык меняется сразу.\nНа планшете — при подключении.'),'tiny'),0,4,2,1)
-        extra.add(extras)
-        settings.pack_start(extra, False, False, 0)
+        general.pack_start(self.autoconnect, False, False, 0)
         self.profile.connect('changed', self.on_profile)
         for widget in (self.width,self.height,self.quality,self.capture):
             widget.connect('value-changed',self.on_settings_changed)
@@ -354,12 +414,17 @@ class Launcher(Gtk.Application):
         self.language.connect('changed', self.on_language_changed)
         self.autoconnect.connect('toggled',self.on_settings_changed)
 
+    def build_footer(self, body):
         footer, status_box = self.card(spacing=10)
         body.pack_start(footer, False, False, 0)
         line = Gtk.Box(spacing=12)
         self.badge = self.style(Gtk.Label(), 'badge')
+        self.badge.set_valign(Gtk.Align.CENTER)
         line.pack_start(self.badge,False,False,0)
         self.status = self.label('', None, True)
+        self.status.set_lines(2)
+        self.status.set_ellipsize(Pango.EllipsizeMode.END)
+        self.status.set_size_request(-1, 38)
         self.set_status(('Your next screen is one click away.', 'Ещё один экран — в одном нажатии.'))
         line.pack_start(self.status,True,True,0)
         status_box.pack_start(line,False,False,0)
@@ -372,16 +437,8 @@ class Launcher(Gtk.Application):
         actions.pack_start(self.start_button,True,True,0)
         actions.pack_start(self.stop_button,False,False,0)
         status_box.pack_start(actions,False,False,0)
-        self.details = self.localized(Gtk.Expander(), 'label', ('Connection log','Журнал подключения'))
-        log_scroll = Gtk.ScrolledWindow()
-        log_scroll.set_min_content_height(120)
-        view = Gtk.TextView(editable=False,cursor_visible=False,wrap_mode=Gtk.WrapMode.WORD_CHAR)
-        self.log = view.get_buffer()
-        log_scroll.add(view)
-        self.details.add(log_scroll)
-        body.pack_start(self.details,False,False,0)
-        bottom = Gtk.Box()
-        bottom.pack_start(self.label(('Closing this window stops its stream.','Закрытие окна останавливает запущенную здесь передачу.'),'tiny'),True,True,0)
+        bottom = Gtk.Box(spacing=12)
+        bottom.pack_start(self.label(('Closing this window stops its stream.','Закрытие окна останавливает запущенную здесь передачу.'),'tiny',True),True,True,0)
         bottom.pack_end(self.label(f'v{__version__} · TanosX','muted'),False,False,0)
         body.pack_start(bottom,False,False,0)
 
@@ -391,6 +448,7 @@ class Launcher(Gtk.Application):
         if not self.device_scan_running:
             self.device_scan_running = True
             threading.Thread(target=self.scan_devices, daemon=True).start()
+            self.internet.refresh()
         return True
 
     def scan_devices(self):
@@ -416,7 +474,7 @@ class Launcher(Gtk.Application):
 
         def text(value, style='device-detail'):
             widget = self.label(value, style, True)
-            widget.set_max_width_chars(23)
+            widget.set_max_width_chars(58)
             widget.set_line_wrap_mode(Pango.WrapMode.WORD_CHAR)
             self.device_rows.pack_start(widget, False, False, 0)
 
@@ -551,7 +609,9 @@ class Launcher(Gtk.Application):
 
     def set_status(self,text,kind='ready'):
         self.status_text, self.status_kind = text, kind
-        self.status.set_text(self.tr(*text) if isinstance(text, tuple) else text)
+        localized = self.tr(*text) if isinstance(text, tuple) else text
+        self.status.set_text(localized)
+        self.status.set_tooltip_text(localized)
         context=self.badge.get_style_context()
         for name in ('busy','error'):
             context.remove_class(name)
@@ -693,6 +753,7 @@ class Launcher(Gtk.Application):
         self.window_geometry.close()
         self.notifications.close()
         self.downloads.close()
+        self.internet.close()
         if self.device_timer is not None:
             GLib.source_remove(self.device_timer)
             self.device_timer = None

@@ -299,6 +299,72 @@ class LauncherLanguageTests(unittest.TestCase):
         self.assertEqual(app.settings.capture_fps, 60)
         self.assertEqual(app.settings.apk_port, 9081)
 
+    def test_long_content_and_expanded_sections_fit_both_compact_pages(self):
+        app = self.make_app()
+        app.pages.set_transition_duration(0)
+        # These widgets are measured without presenting a real desktop window.
+        body = app.window.get_child()
+        body.show_all()
+        app.on_devices([Device("Tablet-" + "X" * 240, "usb", "usb-ready",
+                               "usb-" + "x" * 120, "192.0.2.2")], None)
+        app.internet.reason = "restore-conflict"
+        for widget in descendants(body):
+            if isinstance(widget, Gtk.Expander):
+                widget.set_expanded(True)
+        for language in ("ru", "en"):
+            app.language.set_active_id(language)
+            app.internet.render()
+            for page in ("connection", "settings"):
+                with self.subTest(language=language, page=page):
+                    app.pages.set_visible_child_name(page)
+                    minimum_width, _ = body.get_preferred_width()
+                    self.assertGreater(minimum_width, 0)
+                    self.assertLessEqual(minimum_width, 780)
+                    # Even expanded sections must leave room for the page's
+                    # own vertical scrolling instead of growing the window.
+                    minimum_height, _ = body.get_preferred_height_for_width(780)
+                    self.assertLessEqual(minimum_height, 760)
+
+    def test_stream_controls_stay_outside_pages_and_work_on_settings(self):
+        app = self.make_app()
+        body = app.window.get_child()
+        body.show_all()
+        process, _ = self.make_process()
+        app.process = process
+        app.set_busy(True)
+        app.on_output(process, '@panelyra {"event": "ready"}')
+        app.internet.state = SimpleNamespace(enabled=False, active_path="/test/active")
+        app.internet.render()
+        for page in ("settings", "connection", "settings"):
+            with self.subTest(page=page):
+                app.pages.set_visible_child_name(page)
+                for control in (app.status, app.start_button, app.stop_button):
+                    self.assertTrue(control.get_visible())
+                    self.assertTrue(control.is_ancestor(body))
+                    self.assertFalse(control.is_ancestor(app.pages))
+                self.assertIs(app.process, process)
+                self.assertEqual(app.status_kind, "connected")
+                self.assertFalse(app.start_button.get_sensitive())
+                self.assertTrue(app.stop_button.get_sensitive())
+                self.assertFalse(app.width.get_sensitive())
+                self.assertTrue(app.language.get_sensitive())
+                self.assertTrue(app.internet.button.get_sensitive())
+
+    def test_tab_titles_translate_without_resetting_active_page_or_preferences(self):
+        app = self.make_app()
+        app.window.get_child().show_all()
+        app.pages.set_visible_child_name("settings")
+        original = app.values()
+        for language, titles in (("ru", ("Подключение", "Настройки")),
+                                 ("en", ("Connection", "Settings"))):
+            with self.subTest(language=language):
+                app.language.set_active_id(language)
+                self.assertEqual(app.pages.get_visible_child_name(), "settings")
+                for page, title in zip(("connection", "settings"), titles):
+                    child = app.pages.get_child_by_name(page)
+                    self.assertEqual(app.pages.child_get_property(child, "title"), title)
+                self.assertEqual(app.values(), replace(original, language=language))
+
 
 if __name__ == "__main__":
     unittest.main()

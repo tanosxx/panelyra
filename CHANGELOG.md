@@ -1,6 +1,28 @@
 # Changelog
 
-## 0.3.0 — unreleased
+## 0.4.0 — unreleased
+
+### Added
+
+- English/Russian control for Internet access through the USB tablet, available
+  while streaming. Turning it off removes the tablet's default routes and DNS
+  contribution; turning it on restores the previous settings without reconnecting
+  the display. Changes apply to the current USB connection, not the saved
+  NetworkManager profile.
+- Connection identity checks and versioned NetworkManager updates prevent a
+  stale button state from changing a replaced connection. The previous settings
+  remain available after reopening Panelyra during the same USB connection.
+
+### Changed
+
+- Reorganized the Linux window into **Connection** and **Settings** tabs with
+  separate scrolling, keeping stream status and connect/stop controls visible
+  below both tabs. Image, connection and general preferences have their own
+  sections; the tablet Internet control is in **Settings → Connection**.
+- Compact layout and wrapping labels prevent device details, Internet state,
+  expanded sections and language changes from enlarging the window.
+
+## 0.3.0 — source preview, 2026-10-07
 
 ### Added
 

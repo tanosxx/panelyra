@@ -23,7 +23,9 @@ NCM/CDC Ethernet requires an explicit interface. See [USB selection](usage.md#us
 
 ## USB tethering interrupts the PC's Internet access
 
-Run `./panelyra configure-usb` with the tablet connected. This temporarily removes
+Open **Settings → Connection → Internet via tablet** and click **Turn off**. The same
+button can turn it back on without stopping the display. Alternatively, run
+`./panelyra configure-usb` with the tablet connected. This temporarily removes
 the tether's Internet route and DNS contribution without disconnecting the
 display link. It can be repeated after reconnecting. On machines without
 NetworkManager, configure the USB link's routing in that machine's network

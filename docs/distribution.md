@@ -1,6 +1,6 @@
 # Linux packaging and publication
 
-Panelyra 0.3.0 is prepared for a local Debian package and a GitHub release.
+Panelyra 0.4.0 is prepared for a local Debian package and a GitHub release.
 It is **not published in an application store**. The known working target is
 Ubuntu 26.04 / GNOME 50 / Wayland. A package that installs on another Linux
 system does not establish that screen capture works there.
@@ -14,7 +14,7 @@ tablet. `dpkg-deb` comes from Ubuntu's `dpkg` package.
 python3 scripts/build-deb.py
 ```
 
-The outputs are `out/panelyra_0.3.0_all.deb` and its `.sha256` file. The package
+The outputs are `out/panelyra_0.4.0_all.deb` and its `.sha256` file. The package
 contains the desktop application, CLI, icon, AppStream metadata and documentation.
 It relies on Ubuntu packages for Python, GTK, GStreamer and PipeWire rather
 than copying this machine's dependencies. `Architecture: all` describes the
@@ -25,7 +25,7 @@ keystores, recordings and local settings are excluded. The Android APK is a
 separate download by default. To include an APK in a **local preview** build:
 
 ```bash
-python3 scripts/build-deb.py --include-apk out/panelyra-0.3.0-android-debug.apk
+python3 scripts/build-deb.py --include-apk out/panelyra-0.4.0-android-debug.apk
 ```
 
 Use the actual output filename if it differs. This copies the selected APK to
@@ -37,7 +37,7 @@ Do not distribute a developer's private signing key with either package.
 Open the `.deb` in Ubuntu App Center, or use the terminal:
 
 ```bash
-sudo apt install ./out/panelyra_0.3.0_all.deb
+sudo apt install ./out/panelyra_0.4.0_all.deb
 panelyra gui
 panelyra --help
 ```
@@ -87,8 +87,8 @@ desktop-file-validate packaging/io.github.tanosx.Panelyra.desktop
 appstreamcli validate --no-net --override=url-homepage-missing=info \
   packaging/io.github.tanosx.Panelyra.metainfo.xml
 python3 scripts/build-deb.py
-dpkg-deb --info out/panelyra_0.3.0_all.deb
-dpkg-deb --contents out/panelyra_0.3.0_all.deb
+dpkg-deb --info out/panelyra_0.4.0_all.deb
+dpkg-deb --contents out/panelyra_0.4.0_all.deb
 ```
 
 The scoped AppStream override is only for the unpublished preview: the actual

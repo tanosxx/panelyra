@@ -140,7 +140,7 @@ Use the allowlisted source builder for release candidates:
 ```
 
 The first two commands audit inputs without creating output. The final command
-creates `out/panelyra-0.3.0-source.tar.gz` and its SHA-256 file. It excludes local
+creates `out/panelyra-0.4.0-source.tar.gz` and its SHA-256 file. It excludes local
 toolchains, keys, Git metadata, build outputs and backups, rejects unexpected
 risky source inputs, and normalizes archive metadata for deterministic output
 from identical source contents. See the [GitHub guide](github.md) for publication.

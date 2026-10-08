@@ -92,7 +92,7 @@ Build the source archive with the project's explicit file allowlist:
 /usr/bin/python3 scripts/build-source.py
 ```
 
-This creates `out/panelyra-0.3.0-source.tar.gz` and its `.sha256` file. `--list`
+This creates `out/panelyra-0.4.0-source.tar.gz` and its `.sha256` file. `--list`
 shows the audited input paths without building an archive. The archive excludes
 Git metadata, local tools, build outputs, signing material and backups; it fails
 on unexpected risky files inside source directories. It produces the same

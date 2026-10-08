@@ -13,15 +13,18 @@ Open Panelyra on Linux, select a video mode and connect. Set the monitor's
 position in GNOME Settings → Displays after connecting. The resolution belongs
 to the Panelyra connection; monitor placement belongs to GNOME.
 
-The Linux window has two tabs. **Connection** contains the tablet status,
+The Linux window has three sections. **Connection** contains the tablet status,
 connection help, the Android app download button and the connection log.
-**Settings** groups image, connection and general preferences. Each tab scrolls
-independently when needed; switching tabs or expanding a section does not enlarge
-the window. The stream status and **Connect tablet / Stop** buttons remain
-visible below both tabs.
+**Settings** groups image, connection and general preferences. **Appearance**
+offers a choice of window designs. Sections scroll independently when needed;
+the stream status and **Connect tablet / Stop** buttons remain visible below
+them. The five alternative designs also place image settings and the tablet
+Internet control on **Connection**. Opening **Settings** shows the same controls
+there, keeping any edits. Navigation and the arrangement of panels follow the
+selected design.
 
-Locking the PC displays an animated lock screen on the tablet, with a glowing
-orb, drifting particles and the PC's local clock. The animation is rendered on
+Locking the PC displays an animated lock screen on the tablet, matching the
+applied design and showing the PC's local clock. The animation is rendered on
 the PC and requires no Android update. If Cairo is unavailable, Panelyra shows
 the static **Computer locked** image instead. Unlock
 the PC normally: Panelyra reconnects the virtual screen automatically, keeping
@@ -57,7 +60,7 @@ size. You can still resize it manually; that size is remembered for subsequent
 maximize/fullscreen cycles while the window is open. This does not change the
 tablet's display resolution.
 
-The GUI saves its video and APK-server settings in `$XDG_CONFIG_HOME/panelyra/settings.json`
+The GUI saves its video, appearance and APK-server settings in `$XDG_CONFIG_HOME/panelyra/settings.json`
 (normally `~/.config/panelyra/settings.json`). The CLI does not read these GUI
 preferences: it uses the balanced profile unless another profile or explicit
 options are supplied. Stop the stream before changing its mode, then connect
@@ -68,6 +71,54 @@ state and `panelyra stop` stops a running Panelyra stream for the current user.
 Keep the Android app visible. Unplugging USB or closing the Android app ends the
 connection. Reopen the app and connect again after restoring the USB link.
 The virtual monitor is removed when its owning stream ends.
+
+## Appearance
+
+Open **Appearance** in the Linux window to choose among six designs:
+
+![Appearance — interface preview in Aurora glass](images/linux-appearance-en.png)
+
+| Design | Look |
+| --- | --- |
+| Panelyra original | The original Panelyra design, selected by default |
+| Light minimal | Centered heading, airy vertical form and lavender accents |
+| Dark studio | Navy sidebar, large device workspace and violet controls |
+| Aurora glass | Mint/lilac hero artwork and glass panels |
+| Warm editorial | Large typography, cream panels and a charcoal header/footer |
+| Graphite console | Tablet panel beside compact controls, with lime accents |
+
+Selecting a design immediately previews its colors and layout in the window.
+Click **Apply** to save it for subsequent launches. **Cancel** restores the saved
+design; leaving Appearance also cancels an unsaved preview. The choice is local
+to Panelyra and does not change the system theme.
+
+All six choices sit beside a single preview. Switch between **Interface** and
+**Lock screen** to compare the window design and its animated scene without
+locking the computer. The scenes have different compositions and movement:
+an orbital planet, a floating paper sculpture, a violet light studio, an aurora
+landscape, editorial analog clocks and a perspective circuit grid. Their clocks
+use the PC's local time, and their labels follow the interface language.
+
+The [design gallery](../README.md) shows all six application layouts alongside
+still frames of their lock animations. Screenshots use sample device values and
+an example clock time.
+
+Each design keeps its own composition in the normal application window. The five
+alternative designs include usable image and Internet controls on **Connection**,
+shared with **Settings**. Advanced capture options remain in Settings. The normal connection page fits the default window without
+scrolling for one tablet and collapsed help/log sections; very small windows or
+expanded details can still scroll.
+
+You can preview and apply designs while streaming without interrupting the
+second screen. **Apply** also sets the animation for the next computer lock in
+the stream started by this window. Unsaved previews do not change the tablet's
+lock screen. The sender renders it into the existing video stream, so no Android
+update is needed; Android's own app interface keeps its existing design.
+Older preference files without a theme use Panelyra original. If a saved theme is no
+longer recognized, the original design is used with a warning and other valid preferences
+are preserved. CLI sessions use the original lock scene unless started with
+`--theme light`, `--theme midnight`, `--theme aurora`, `--theme editorial` or
+`--theme graphite`; `--theme classic` selects the original explicitly.
 
 ## Notification bell
 
@@ -214,7 +265,8 @@ unrelated to a tablet. No address is hard-coded.
 not enable tethering on Android. If tethering was enabled after the Android app
 opened, refresh the app's connection display or reopen it.
 
-Open **Settings → Connection → Internet via tablet**. Click **Turn off**
+Open **Settings → Connection → Internet via tablet**, or use the Internet control
+on **Connection** in an alternative design. Click **Turn off**
 to remove the tablet's Internet default routes and DNS contribution while keeping
 its local USB display connection. Click **Turn on** to restore the previous
 settings. It is available during streaming and does not require an Android update.

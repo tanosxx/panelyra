@@ -10,6 +10,7 @@ import time
 
 from . import network
 from .adb import Tunnel
+from .themes import THEME_IDS
 
 
 PORT = 27184
@@ -40,6 +41,20 @@ def parse_update(line):
         return None
     language = value['language']
     return language if language in ('en', 'ru') else None
+
+
+def parse_theme_update(line):
+    """Accept only a bounded local theme command; it has no Android wire form."""
+    if not isinstance(line, bytes) or len(line) > MAX_UPDATE:
+        return None
+    try:
+        value = json.loads(line)
+    except (ValueError, UnicodeError):
+        return None
+    if not isinstance(value, dict) or set(value) != {'theme'}:
+        return None
+    theme = value['theme']
+    return theme if isinstance(theme, str) and theme in THEME_IDS else None
 
 
 def exchange(connection, language, timeout=TIMEOUT):
@@ -75,12 +90,16 @@ class LanguageSync:
     """
 
     def __init__(self, initial=None, *, link=None, serial=None, input_stream=None,
-                 on_result=None):
+                 on_result=None, on_language=None, on_theme=None):
         self.initial = None if initial is None else resolve_language(initial)
         self.link = link
         self.serial = serial
         self.input_stream = input_stream
         self.on_result = on_result
+        # Local callbacks run immediately on the calling/stdin thread. They
+        # must only store state, never touch GTK or restart capture pipelines.
+        self.on_language = on_language
+        self.on_theme = on_theme
         self._condition = threading.Condition()
         self._closed = False
         self._input_closed = False
@@ -120,6 +139,8 @@ class LanguageSync:
             return
         with self._condition:
             if not self._closed:
+                if self.on_language is not None:
+                    self.on_language(language)
                 self._generation += 1
                 self._pending = (self._generation, language)
                 self._condition.notify_all()
@@ -142,6 +163,12 @@ class LanguageSync:
                             language = parse_update(bytes(pending))
                             if language:
                                 self.update(language)
+                            else:
+                                theme = parse_theme_update(bytes(pending))
+                                if theme is not None:
+                                    with self._condition:
+                                        if not self._closed and self.on_theme is not None:
+                                            self.on_theme(theme)
                         pending.clear()
                         discard = False
                     elif not discard:

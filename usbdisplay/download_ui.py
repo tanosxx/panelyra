@@ -64,6 +64,8 @@ class DownloadPanel:
     def build_window(self):
         self.window = Gtk.Window(transient_for=self.app.window, destroy_with_parent=True)
         self.style(self.window, 'panelyra')
+        if hasattr(self.app, 'style_theme'):
+            self.app.style_theme(self.window)
         self.window.set_default_size(640, 740)
         self.window.connect('delete-event', self.hide)
         header = Gtk.HeaderBar(show_close_button=True)

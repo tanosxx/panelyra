@@ -1,6 +1,6 @@
 """Preference corruption must not break startup or destroy the last good file."""
 
-from dataclasses import replace
+from dataclasses import asdict, replace
 import json
 import os
 from pathlib import Path
@@ -27,6 +27,7 @@ class SettingsTests(unittest.TestCase):
     def test_valid_preferences_round_trip_as_private_atomic_file(self):
         value = settings.Settings(width=1280, height=800, fps=20, capture_fps=60,
                                   quality=20, transport="adb", auto_connect=False, language="ru",
+                                  theme="midnight",
                                   apk_path="/tmp/Планшет/app.apk", apk_port=9080,
                                   apk_duration=900, apk_interface="enx123456789abc")
         settings.save(value, self.path)
@@ -77,6 +78,7 @@ class SettingsTests(unittest.TestCase):
             "transport": ["wifi", 1, None],
             "auto_connect": ["false", 0, 1, None],
             "language": ["de", False, None],
+            "theme": ["unknown", "", "Midnight", False, None, 1, [], {}],
             "apk_path": [None, 123, "bad\0.apk", "x" * 4097],
             "apk_port": [True, "8765", 1023, 65536],
             "apk_duration": [False, "1800", 0, 86401],
@@ -108,6 +110,46 @@ class SettingsTests(unittest.TestCase):
         self.assertIsNone(error)
         self.assertEqual((loaded.width, loaded.height, loaded.fps, loaded.quality),
                          (1280, 800, 20, 19))
+
+    def test_existing_preferences_without_theme_keep_all_settings(self):
+        original = settings.Settings(width=1280, height=800, fps=20, quality=20,
+                                     language="ru", auto_connect=False,
+                                     apk_path="/tmp/old.apk", apk_port=9080,
+                                     apk_duration=900, apk_interface="usb0")
+        payload = asdict(original)
+        del payload["theme"]
+        self.path.parent.mkdir()
+        self.path.write_text(json.dumps(payload))
+        before = self.path.read_bytes()
+        loaded, error = settings.load(self.path)
+        self.assertEqual(loaded, original)
+        self.assertEqual(loaded.theme, "classic")
+        self.assertIsNone(error)
+        self.assertEqual(self.path.read_bytes(), before)
+
+    def test_invalid_loaded_theme_preserves_other_valid_preferences(self):
+        original = settings.Settings(width=1280, height=800, fps=20, quality=20,
+                                     transport="adb", language="ru", auto_connect=False,
+                                     apk_path="/tmp/keep.apk", apk_port=9080,
+                                     apk_duration=900, apk_interface="usb0")
+        self.path.parent.mkdir()
+        for theme in ("removed-theme", "", None, False, 1, [], {}):
+            with self.subTest(theme=theme):
+                self.path.write_text(json.dumps(dict(asdict(original), theme=theme)))
+                before = self.path.read_bytes()
+                loaded, error = settings.load(self.path)
+                self.assertEqual(loaded, original)
+                self.assertIn("theme", error)
+                self.assertEqual(self.path.read_bytes(), before)
+
+    def test_each_theme_round_trips_without_changing_backend_arguments(self):
+        original = settings.Settings()
+        for theme in ("classic", "light", "midnight", "aurora", "editorial", "graphite"):
+            with self.subTest(theme=theme):
+                value = replace(original, theme=theme)
+                settings.save(value, self.path)
+                self.assertEqual(settings.load(self.path), (value, None))
+                self.assertEqual(value.command_args(), original.command_args())
 
     def test_boundary_modes_and_presets_make_valid_cli_arguments(self):
         modes = [settings.Settings(width=160, height=160, fps=5, capture_fps=5, quality=10),

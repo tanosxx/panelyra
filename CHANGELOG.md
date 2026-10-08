@@ -4,6 +4,21 @@
 
 ### Added
 
+- Six independently composed animated lock scenes: an orbital planet, kinetic
+  paper sculpture, violet light studio, aurora landscape, editorial analog
+  clock and a perspective circuit grid. Each has its own typography, animation
+  and landscape/portrait layout. Appearance includes a live lock-screen preview;
+  applying a design updates the running sender for the next lock without
+  reconnecting or updating Android. Unsaved previews remain local to the chooser.
+- Local language changes also update the next lock screen immediately, even if
+  the Android language-control channel is unavailable.
+- A separate English/Russian **Appearance** page for the Linux window, with
+  Panelyra original plus Light minimal, Dark studio, Aurora glass, Warm editorial
+  and Graphite console. Selecting a design previews its colors and layout immediately;
+  Apply saves it, while Cancel or leaving the page restores the saved design.
+  Switching designs does not interrupt the display stream or require an Android
+  update. Existing preferences keep the original design; unknown saved themes
+  fall back to it without discarding otherwise valid video or APK-server preferences.
 - English/Russian control for Internet access through the USB tablet, available
   while streaming. Turning it off removes the tablet's default routes and DNS
   contribution; turning it on restores the previous settings without reconnecting
@@ -15,15 +30,28 @@
 
 ### Changed
 
+- Restored each design's composition in the normal application window: Light
+  minimal has a centered heading and airy vertical form; Dark studio has a navy
+  sidebar and device workspace; Aurora glass uses a mint/lilac hero and glass
+  panels; Warm editorial pairs large typography with cream and charcoal surfaces;
+  Graphite console places the device beside compact controls.
+- The five alternative designs include image settings and the tablet Internet
+  control on **Connection**. Opening **Settings** shows the same controls there,
+  preserving edits and the running connection.
+- Appearance shows all six choices beside one preview, with **Interface** and
+  **Lock screen** views, instead of a long gallery. Apply/Cancel remain visible.
 - Reorganized the Linux window into **Connection** and **Settings** tabs with
   separate scrolling, keeping stream status and connect/stop controls visible
   below both tabs. Image, connection and general preferences have their own
-  sections; the tablet Internet control is in **Settings → Connection**.
+  sections. The original design keeps the tablet Internet control in
+  **Settings → Connection**.
 - Compact layout and wrapping labels prevent device details, Internet state,
   expanded sections and language changes from enlarging the window.
-- Refreshed English/Russian Linux screenshots for the Connection tab, each
-  settings section and Android app installation, with collapsible README
-  galleries using sample device values.
+- Refreshed English/Russian screenshots for all six Linux designs, both
+  Appearance previews, each settings section and Android app installation.
+  README galleries pair each design with a still frame of its lock animation;
+  the main screenshot shows Aurora glass. Device values and clock times are
+  examples; Panelyra original remains the default design.
 
 ## 0.3.0 — source preview, 2026-10-07
 

@@ -38,7 +38,7 @@ class InternetPanel:
         self.state = None
         self.reason = self.error = self.diagnostic = None
         self.widget = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=7)
-        row = Gtk.Box(spacing=16)
+        row = self.row = Gtk.Box(spacing=16)
         summary = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
         self.title = self.label('device-name')
         summary.pack_start(self.title, False, False, 0)
@@ -57,6 +57,16 @@ class InternetPanel:
         self.detail.get_style_context().add_class('muted')
         self.widget.pack_start(self.detail, False, False, 0)
         self.render()
+
+    def set_compact(self, compact, horizontal=False):
+        """Fit the shared control into a theme card without changing its state."""
+        self.widget.set_spacing(4 if compact else 7)
+        self.row.set_spacing(8 if compact else 16)
+        self.widget.set_orientation(Gtk.Orientation.HORIZONTAL if horizontal else Gtk.Orientation.VERTICAL)
+        self.widget.set_child_packing(self.row, horizontal, horizontal, 0, Gtk.PackType.START)
+        self.detail.set_margin_start(12 if horizontal else 0)
+        self.detail.set_valign(Gtk.Align.CENTER)
+        self.title.set_max_width_chars(20 if compact and not horizontal else 58)
 
     @staticmethod
     def label(style):
@@ -102,6 +112,8 @@ class InternetPanel:
         self.status.set_tooltip_text(self.tr(
             'Allowed means the tablet may provide Internet. The system chooses which network to use.',
             '«Разрешён» означает, что планшет может раздавать интернет. Система выбирает, какую сеть использовать.'))
+        if hasattr(self.app, 'update_overview'):
+            self.app.update_overview()
 
     @staticmethod
     def failure(error):

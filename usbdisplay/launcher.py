@@ -11,10 +11,12 @@ import threading
 import gi
 gi.require_version('Gtk', '3.0')
 gi.require_version('Gdk', '3.0')
-from gi.repository import Gdk, Gio, GLib, Gtk, Pango
+from gi.repository import Gdk, GdkPixbuf, Gio, GLib, Gtk, Pango
 
 from . import APP_ID, __version__
 from . import runtime
+from . import themes
+from .appearance_ui import AppearancePanel
 from .devices import discover_devices
 from .download_ui import DownloadPanel
 from .internet_ui import InternetPanel
@@ -22,6 +24,7 @@ from .language import resolve_language
 from .notifications_ui import NotificationCenter
 from .settings import PRESETS, Settings, load, save
 from .window_geometry import WindowGeometry
+from .theme_preview import DeviceIllustration
 
 PROJECT = Path(__file__).resolve().parents[1]
 ASSETS = Path(__file__).resolve().parent / 'assets'
@@ -107,12 +110,18 @@ class Launcher(Gtk.Application):
         self.force_timer = self.external_timer = None
         self.language_timer = None
         self.pending_language = None
+        self.theme_timer = None
+        self.pending_theme = None
         self.device_timer = None
         self.device_scan_running = False
         self.device_snapshot = None
         self.last_error = None
         self.lines = []
         self.controls = []
+        self.visual_theme = self.settings.theme
+        self.layout_signature = None
+        self.layout_source = None
+        self.previous_page = 'connection'
 
     def tr(self, english, russian):
         return russian if self.russian else english
@@ -150,6 +159,9 @@ class Launcher(Gtk.Application):
             self.notifications.render()
             self.downloads.render()
             self.internet.render()
+            self.appearance.render()
+            self.update_overview()
+            self.update_theme_header()
         finally:
             self.updating = previous
 
@@ -161,7 +173,7 @@ class Launcher(Gtk.Application):
             self.device_timer = GLib.timeout_add_seconds(3, self.refresh_devices)
             self.notifications.start()
             if self.settings_warning:
-                self.append_log('Preferences reset: ' + self.settings_warning)
+                self.append_log('Preferences notice: ' + self.settings_warning)
             if self.auto_connect:
                 self.start()
         self.window.present()
@@ -208,10 +220,16 @@ class Launcher(Gtk.Application):
         self.window.set_icon_from_file(str(ASSETS / 'panelyra-128.png'))
         self.style(self.window, 'panelyra')
         self.window.connect('delete-event', self.on_close)
+        self.window.connect('destroy', self.on_window_destroy)
         provider = Gtk.CssProvider()
         provider.load_from_data(CSS)
         Gtk.StyleContext.add_provider_for_screen(self.window.get_screen(), provider,
                                                  Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+        theme_provider = Gtk.CssProvider()
+        theme_provider.load_from_data(themes.CSS)
+        Gtk.StyleContext.add_provider_for_screen(self.window.get_screen(), theme_provider,
+                                                 Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION + 1)
+        self.style_theme(self.window)
         header = self.localized(Gtk.HeaderBar(title='Panelyra'), 'subtitle',
                                 ('A second life. A second screen.', 'Вторая жизнь. Второй экран.'))
         header.set_show_close_button(True)
@@ -220,26 +238,53 @@ class Launcher(Gtk.Application):
         about.connect('clicked', self.about)
         header.pack_end(about)
         self.notifications = NotificationCenter(self)
+        self.style_theme(self.notifications.popover)
         header.pack_end(self.notifications.button)
         self.window.set_titlebar(header)
-        body = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14)
-        body.set_border_width(20)
+        body = self.body = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14)
+        body.set_border_width(16)
         self.window.add(body)
+        self.workarea = Gtk.Box(spacing=14)
+        body.pack_start(self.workarea, True, True, 0)
         self.pages = Gtk.Stack()
         self.pages.set_homogeneous(True)
         self.pages.set_transition_type(Gtk.StackTransitionType.CROSSFADE)
         self.pages.set_transition_duration(120)
-        switcher = self.style(Gtk.StackSwitcher(stack=self.pages), 'page-switcher')
-        switcher.set_halign(Gtk.Align.CENTER)
-        body.pack_start(switcher, False, False, 0)
-        body.pack_start(self.pages, True, True, 0)
+        self.sidebar_frame = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14)
+        self.sidebar_frame.set_no_show_all(True)
+        brand = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        brand.pack_start(Gtk.Image.new_from_file(str(ASSETS / 'panelyra-64.png')), False, False, 0)
+        brand.pack_start(self.label('Panelyra', 'theme-sidebar-brand'), False, False, 0)
+        brand.set_halign(Gtk.Align.CENTER)
+        brand.show_all()
+        self.sidebar_frame.pack_start(brand, False, False, 8)
+        self.sidebar = self.style(Gtk.StackSidebar(stack=self.pages), 'theme-sidebar')
+        self.sidebar.set_no_show_all(True)
+        self.sidebar_frame.pack_start(self.sidebar, True, True, 0)
+        self.workarea.pack_start(self.sidebar_frame, False, False, 0)
+        content = self.page_content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14)
+        self.workarea.pack_start(content, True, True, 0)
+        self.switcher = self.style(Gtk.StackSwitcher(stack=self.pages), 'page-switcher')
+        self.switcher.set_halign(Gtk.Align.CENTER)
+        self.switcher.set_no_show_all(True)
+        content.pack_start(self.switcher, False, False, 0)
+        content.pack_start(self.pages, True, True, 0)
         connection = self.add_page('connection', ('Connection', 'Подключение'))
         preferences = self.add_page('settings', ('Settings', 'Настройки'))
+        appearance = self.add_page('appearance', ('Appearance', 'Оформление'), footer=True)
         self.build_connection_page(connection)
         self.build_settings_page(preferences)
+        self.build_overview()
+        self.appearance = AppearancePanel(self)
+        appearance.pack_start(self.appearance.widget, False, False, 0)
+        self.appearance.widget.remove(self.appearance.actions)
+        self.appearance_frame.pack_end(self.appearance.actions, False, False, 0)
         self.build_footer(body)
+        self.pages.connect('notify::visible-child-name', self.on_page_changed)
+        self.workarea.connect('size-allocate', self.on_layout_size)
+        self.preview_theme(self.settings.theme)
 
-    def add_page(self, name, title):
+    def add_page(self, name, title, footer=False):
         # Each page scrolls independently. Hidden content and expanded options
         # must never enlarge the window or push connection controls off-screen.
         scroll = Gtk.ScrolledWindow()
@@ -250,42 +295,63 @@ class Launcher(Gtk.Application):
         content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14)
         content.set_margin_end(4)
         scroll.add(content)
-        self.pages.add_named(scroll, name)
-        self.bind_text(lambda text: self.pages.child_set_property(scroll, 'title', text), title)
+        page = scroll
+        if footer:
+            page = self.appearance_frame = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+            page.pack_start(scroll, True, True, 0)
+        self.pages.add_named(page, name)
+        self.bind_text(lambda text: self.pages.child_set_property(page, 'title', text), title)
         return content
 
     def build_connection_page(self, body):
-        hero = self.style(Gtk.Box(spacing=16), 'hero')
+        body.set_spacing(10)
+        self.connection_grid = Gtk.Grid(column_spacing=14, row_spacing=14)
+        body.pack_start(self.connection_grid, False, False, 0)
+        hero = self.hero = self.style(Gtk.Box(spacing=16), 'hero')
         image = Gtk.Image.new_from_file(str(ASSETS / 'panelyra-64.png'))
+        self.hero_logo = image
+        image.set_no_show_all(True)
         image.set_margin_start(18)
         hero.pack_start(image, False, False, 0)
-        intro = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        intro = self.hero_intro = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
         intro.set_margin_top(18)
         intro.set_margin_bottom(18)
         intro.set_margin_end(18)
-        intro.pack_start(self.label(('YOUR TABLET, REIMAGINED', 'ВАШ ПЛАНШЕТ МОЖЕТ БОЛЬШЕ'), 'eyebrow', True), False, False, 0)
-        intro.pack_start(self.label(('Room for one more idea.', 'Место для новой идеи.'), 'headline', True), False, False, 0)
-        intro.pack_start(self.label(('Extend your Linux desktop over one USB cable.', 'Расширьте рабочий стол Linux одним USB-кабелем.'), 'muted', True), False, False, 0)
+        self.hero_eyebrow = self.label(('YOUR TABLET, REIMAGINED', 'ВАШ ПЛАНШЕТ МОЖЕТ БОЛЬШЕ'), 'eyebrow', True)
+        self.hero_title = self.label(('Room for one more idea.', 'Место для новой идеи.'), 'headline', True)
+        self.hero_description = self.label(('Extend your Linux desktop over one USB cable.', 'Расширьте рабочий стол Linux одним USB-кабелем.'), 'muted', True)
+        for item in (self.hero_eyebrow, self.hero_title, self.hero_description):
+            item.set_no_show_all(True)
+            intro.pack_start(item, False, False, 0)
         hero.pack_start(intro, True, True, 0)
-        body.pack_start(hero, False, False, 0)
+        self.connection_art = DeviceIllustration(self.visual_theme)
+        self.connection_art.set_no_show_all(True)
+        hero.pack_start(self.connection_art, True, True, 0)
 
-        card, connect = self.card(spacing=8)
-        body.pack_start(card, False, False, 0)
-        device_header = Gtk.Box(spacing=8)
+        card, connect = self.card(spacing=6)
+        self.device_card = self.style(card, 'connection-device')
+        self.device_content = self.style(connect, 'device-content')
+        connect.set_border_width(12)
+        self.device_info = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        connect.pack_start(self.device_info, True, True, 0)
+        self.device_art = DeviceIllustration(self.visual_theme)
+        self.device_art.set_no_show_all(True)
+        connect.pack_start(self.device_art, True, True, 0)
+        device_header = self.device_header = Gtk.Box(spacing=8)
+        device_header.set_no_show_all(True)
         device_header.pack_start(self.label(('Connected device', 'Устройство'), 'section-title'), True, True, 0)
-        refresh = Gtk.Button.new_from_icon_name('view-refresh-symbolic', Gtk.IconSize.MENU)
+        refresh = self.device_refresh = Gtk.Button.new_from_icon_name('view-refresh-symbolic', Gtk.IconSize.MENU)
         self.style(refresh, 'compact')
         self.localized(refresh, 'tooltip-text', ('Refresh devices', 'Обновить список устройств'))
         refresh.connect('clicked', lambda _: self.refresh_devices())
         device_header.pack_end(refresh, False, False, 0)
-        connect.pack_start(device_header, False, False, 0)
+        self.device_info.pack_start(device_header, False, False, 0)
         self.device_rows = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
         self.device_waiting = self.label(self.tr('Checking USB devices…', 'Проверяем USB-устройства…'), 'muted', True)
         self.device_rows.pack_start(self.device_waiting, False, False, 0)
-        connect.pack_start(self.device_rows, False, False, 0)
-        connect.pack_start(Gtk.Separator(), False, False, 2)
+        self.device_info.pack_start(self.device_rows, False, False, 0)
         setup = self.localized(Gtk.Expander(), 'label', ('How to connect', 'Как подключить'))
-        steps_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        steps_box = self.device_steps = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
         steps_box.set_margin_top(12)
         steps = [('Connect a USB data cable.', 'Подключите USB-кабель с передачей данных.'),
                  ('Enable USB tethering on Android.', 'Включите USB-модем в настройках Android.'),
@@ -299,15 +365,25 @@ class Launcher(Gtk.Application):
             row.pack_start(step, True, True, 0)
             steps_box.pack_start(row, False, False, 2)
         setup.add(steps_box)
-        connect.pack_start(setup, False, False, 0)
+        self.device_setup = setup
+        self.device_info.pack_start(setup, False, False, 0)
         help_button = self.style(self.localized(Gtk.Button(), 'label', ('Connection help', 'Помощь с подключением')), 'link')
         help_button.connect('clicked', self.help)
-        support = Gtk.Box(spacing=12)
+        support = self.device_support = self.style(Gtk.Box(spacing=8), 'device-support')
         support.pack_start(help_button, False, False, 0)
         self.downloads = DownloadPanel(self)
         self.style(self.downloads.button, 'compact')
         support.pack_end(self.downloads.button, False, False, 0)
-        connect.pack_start(support, False, False, 0)
+        steps_box.pack_start(support, False, False, 0)
+        self.device_actions = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        self.device_actions.set_no_show_all(True)
+        connect.pack_end(self.device_actions, False, False, 0)
+        self.network_card, self.network_content = self.card(spacing=4)
+        self.style(self.network_card, 'network-card')
+        self.style(self.network_content, 'network-content')
+        self.network_content.set_border_width(10)
+        self.connection_left = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        self.connection_right = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
 
         self.details = self.localized(Gtk.Expander(), 'label', ('Connection log','Журнал подключения'))
         log_scroll = Gtk.ScrolledWindow()
@@ -319,8 +395,309 @@ class Launcher(Gtk.Application):
         self.details.add(log_scroll)
         body.pack_start(self.details, False, False, 0)
 
+    def build_overview(self):
+        self.overview_card, summary = self.card(spacing=10)
+        self.overview_detail = summary
+        self.style(self.overview_card, 'overview-card')
+        summary.pack_start(self.label(('Image settings', 'Параметры изображения'), 'section-title', True), False, False, 0)
+        self.overview_profile = self.label('', 'muted', True)
+        summary.pack_start(self.overview_profile, False, False, 0)
+        self.overview_values = []
+        for caption in (('Resolution', 'Разрешение'), ('Frame rate', 'Плавность'), ('Quality', 'Качество')):
+            row = Gtk.Box(spacing=8)
+            row.pack_start(self.label(caption, 'muted', True), True, True, 0)
+            value = self.label('', 'mode-value')
+            row.pack_end(value, False, False, 0)
+            self.overview_values.append(value)
+            summary.pack_start(row, False, False, 0)
+        summary.pack_start(Gtk.Separator(), False, False, 2)
+        self.overview_internet = self.label('', 'muted', True)
+        summary.pack_start(self.overview_internet, False, False, 0)
+        action = self.localized(Gtk.Button(), 'label', ('Adjust settings', 'Настроить'))
+        action.connect('clicked', lambda _: self.pages.set_visible_child_name('settings'))
+        summary.pack_start(action, False, False, 0)
+        # Compact windows keep the useful current profile in a short strip.
+        # The complete editor remains on Settings; wide layouts use the card.
+        self.overview_compact = self.style(Gtk.Box(spacing=12), 'overview-strip')
+        self.overview_compact.set_border_width(10)
+        self.overview_short = self.label('', 'muted', True)
+        self.overview_compact.pack_start(self.overview_short, True, True, 0)
+        adjust = self.style(self.localized(Gtk.Button(), 'label', ('Adjust', 'Настроить')), 'compact')
+        adjust.set_valign(Gtk.Align.CENTER)
+        adjust.connect('clicked', lambda _: self.pages.set_visible_child_name('settings'))
+        self.overview_compact.pack_end(adjust, False, False, 0)
+        self.overview_card.pack_start(self.overview_compact, False, False, 0)
+        self.update_overview()
+        self.overview_card.show_all()
+        self.overview_detail.set_no_show_all(True)
+        self.overview_compact.set_no_show_all(True)
+
+    def update_overview(self):
+        if not hasattr(self, 'overview_values'):
+            return
+        names = {'balanced': ('Balanced', 'Баланс'), 'economy': ('Lightweight', 'Лёгкий'),
+                 'crisp': ('Crisp', 'Чёткий'), 'custom': ('Custom', 'Свои настройки')}
+        self.overview_profile.set_text(self.tr(*names[self.detect_profile()]))
+        for widget, value in zip(self.overview_values, (
+                f'{self.settings.width} × {self.settings.height}',
+                f'{self.settings.fps} fps', f'QP {self.settings.quality}')):
+            widget.set_text(value)
+        state = self.internet.state
+        if state is None:
+            text = self.tr('Tablet Internet: unavailable', 'Интернет планшета: недоступен')
+        elif state.enabled:
+            text = self.tr('Tablet Internet: allowed', 'Интернет планшета: разрешён')
+        else:
+            text = self.tr('Tablet Internet: off', 'Интернет планшета: отключён')
+        self.overview_internet.set_text(text)
+        self.overview_short.set_text(
+            f'{self.overview_profile.get_text()} · {self.settings.width} × {self.settings.height}'
+            f' · {self.settings.fps} fps · QP {self.settings.quality}')
+        self.overview_short.set_tooltip_text(text)
+
+    def style_theme(self, widget):
+        context = widget.get_style_context()
+        context.add_class('panelyra')
+        for theme_id in themes.THEMES:
+            context.remove_class('theme-' + theme_id)
+        context.add_class('theme-' + self.visual_theme)
+
+    def preview_theme(self, theme_id):
+        if theme_id not in themes.THEMES:
+            raise ValueError('Unknown theme')
+        self.visual_theme = theme_id
+        for widget in (self.window, self.notifications.popover, self.downloads.window):
+            if widget is not None:
+                self.style_theme(widget)
+        self.notifications.set_theme(theme_id)
+        self.connection_art.set_theme(theme_id)
+        self.device_art.set_theme(theme_id)
+        self.layout_signature = None
+        if self.layout_source is not None:
+            GLib.source_remove(self.layout_source)
+            self.layout_source = None
+        self.apply_theme_layout()
+
+    def commit_theme(self, theme_id):
+        try:
+            # Save only appearance; an unfinished video edit must stay a draft.
+            value = replace(self.settings, theme=theme_id).validate()
+            save(value)
+        except (OSError, ValueError) as error:
+            self.append_log(self.tr('Could not save appearance: ', 'Не удалось сохранить оформление: ') + str(error))
+            return False
+        self.settings = value
+        self.preview_theme(theme_id)
+        self.sync_theme()
+        return True
+
+    def on_page_changed(self, *_):
+        page = self.pages.get_visible_child_name()
+        if self.previous_page == 'appearance' and page != 'appearance':
+            self.appearance.cancel()
+        self.previous_page = page
+        self.layout_signature = None
+        self.apply_theme_layout()
+
+    def on_layout_size(self, *_):
+        if self.layout_source is None and not self.closing:
+            self.layout_source = GLib.idle_add(self.apply_theme_layout)
+
+    def on_window_destroy(self, *_):
+        self.closing = True
+        self.clear_pending_theme()
+        if self.layout_source is not None:
+            GLib.source_remove(self.layout_source)
+            self.layout_source = None
+
+    def update_theme_header(self):
+        if not hasattr(self, 'hero_title'):
+            return
+        layout = themes.THEMES[self.visual_theme].layout
+        self.hero_title.set_text('Panelyra' if layout == 'stacked'
+                                 else self.tr('Your second screen', 'Ваш второй экран') if layout == 'editorial'
+                                 else self.tr('Panelyra · USB display', 'Panelyra · USB-экран') if layout == 'console'
+                                 else self.tr('Room for one more idea.', 'Место для новой идеи.'))
+        self.hero_description.set_text(self.tr('A second life. A second screen.', 'Вторая жизнь. Второй экран.')
+                                       if layout == 'stacked' else self.tr(
+                                           'Extend your Linux desktop over one USB cable.',
+                                           'Расширьте рабочий стол Linux одним USB-кабелем.'))
+
+    @staticmethod
+    def detach(widget):
+        parent = widget.get_parent()
+        if parent is not None:
+            parent.remove(widget)
+
+    def arrange_picture_fields(self, narrow):
+        for child in self.picture_grid.get_children():
+            self.picture_grid.remove(child)
+        self.picture_grid.set_column_homogeneous(not narrow)
+        positions = ((0, 0, 2), (0, 1, 2), (0, 2, 1), (1, 2, 1)) if narrow else (
+            (0, 0, 1), (1, 0, 1), (0, 1, 1), (1, 1, 1))
+        for field, (column, row, span) in zip(self.picture_fields, positions):
+            self.picture_grid.attach(field, column, row, span, 1)
+        self.picture_grid.show_all()
+
+    def apply_theme_layout(self):
+        self.layout_source = None
+        if self.closing:
+            return False
+        layout = themes.THEMES[self.visual_theme].layout
+        width = self.window.get_allocated_width()
+        if width <= 1:
+            width = self.window.get_default_size().width
+        height = self.window.get_allocated_height()
+        if height <= 1:
+            height = self.window.get_default_size().height
+        sidebar = layout == 'studio' and width >= 760
+        page = self.pages.get_visible_child_name()
+        short = height < 720
+        signature = (self.visual_theme, sidebar, short, page)
+        self.update_theme_header()
+        if signature == self.layout_signature:
+            return False
+        self.layout_signature = signature
+        window_context = self.window.get_style_context()
+        (window_context.add_class if short else window_context.remove_class)('short-window')
+        self.body.set_spacing(10 if short else 14)
+        self.page_content.set_spacing(10 if short else 14)
+        self.sidebar_frame.set_visible(sidebar)
+        self.sidebar.set_visible(sidebar)
+        self.switcher.set_visible(not sidebar)
+        self.connection_grid.set_column_spacing(12)
+        self.connection_grid.set_row_spacing((6 if layout == 'stacked' else 8) if short else 10)
+        self.connection_grid.set_column_homogeneous(layout == 'editorial')
+
+        # Reparent the real editors, never copies of their values. Switching
+        # pages or previewing a design cannot discard an unfinished edit.
+        for widget in (self.hero, self.device_card, self.picture_card,
+                       self.network_card, self.connection_left, self.connection_right,
+                       self.internet.widget):
+            self.detach(widget)
+        for column in (self.connection_left, self.connection_right):
+            for child in column.get_children():
+                column.remove(child)
+        main_editor = layout != 'classic' and page != 'settings'
+        if main_editor:
+            self.network_content.pack_start(self.internet.widget, False, False, 0)
+        else:
+            self.settings_connection.pack_start(self.internet.widget, False, False, 0)
+            self.settings_body.pack_start(self.picture_card, False, False, 0)
+            self.settings_body.reorder_child(self.picture_card, 1)
+        self.arrange_picture_fields(main_editor and layout in ('studio', 'glass', 'console', 'editorial'))
+        self.picture_content.set_border_width((8 if short else 10) if main_editor else 18)
+        self.picture_content.set_spacing(6 if main_editor else 12)
+        self.device_content.set_spacing(12)
+        self.device_content.set_border_width(8 if short else 10)
+        self.device_info.set_spacing(4)
+        self.device_header.set_visible(layout != 'stacked')
+        self.device_actions.set_visible(layout == 'stacked')
+        for widget in (self.device_refresh, self.downloads.button):
+            self.detach(widget)
+        if layout == 'stacked':
+            self.device_actions.pack_start(self.downloads.button, False, False, 0)
+            self.device_actions.pack_start(self.device_refresh, False, False, 0)
+            self.device_refresh.set_halign(Gtk.Align.END)
+            self.device_content.reorder_child(self.device_art, 0)
+        else:
+            self.device_header.pack_end(self.device_refresh, False, False, 0)
+            self.device_support.pack_end(self.downloads.button, False, False, 0)
+            self.device_refresh.set_halign(Gtk.Align.FILL)
+        self.detach(self.device_support)
+        support_parent = self.device_info if layout == 'classic' else self.device_steps
+        support_parent.pack_start(self.device_support, False, False, 0)
+        self.device_content.set_orientation(Gtk.Orientation.HORIZONTAL if layout in
+                                            ('stacked', 'editorial') else Gtk.Orientation.VERTICAL)
+        self.device_content.reorder_child(self.device_art, 0 if layout in ('console', 'stacked') else 1)
+        self.device_info.set_valign(Gtk.Align.CENTER if layout in ('stacked', 'editorial') else Gtk.Align.START)
+        self.device_art.set_visible(layout in ('stacked', 'studio', 'editorial', 'console'))
+        self.device_art.set_variant('pair' if layout == 'studio' else 'tablet')
+        self.device_art.set_size_request(76 if layout == 'stacked' else 88 if layout == 'editorial' else 180,
+                                        66 if layout == 'stacked' and short else 76 if layout == 'stacked'
+                                        else (104 if short else 124) if layout == 'editorial'
+                                        else 174 if short else 214)
+        self.device_art.set_hexpand(layout in ('studio', 'console'))
+        self.device_support.set_orientation(Gtk.Orientation.VERTICAL if layout in
+                                            ('studio', 'glass', 'editorial', 'console') else Gtk.Orientation.HORIZONTAL)
+        self.hero.set_orientation(Gtk.Orientation.HORIZONTAL)
+        self.hero.set_spacing(12)
+        self.hero.set_halign(Gtk.Align.CENTER if layout == 'stacked' else Gtk.Align.FILL)
+        self.hero_logo.set_visible(layout in ('classic', 'stacked'))
+        logo_size = 44 if layout == 'stacked' else 64
+        self.hero_logo.set_from_pixbuf(GdkPixbuf.Pixbuf.new_from_file_at_scale(
+            str(ASSETS / 'panelyra-64.png'), logo_size, logo_size, True))
+        self.hero_logo.set_margin_start(0 if layout == 'stacked' else 16)
+        self.hero_eyebrow.set_visible(layout in ('classic', 'editorial'))
+        self.hero_title.show()
+        self.hero_description.set_visible(layout != 'console')
+        self.hero_intro.set_margin_start(0 if layout in ('stacked', 'editorial') else 12)
+        self.hero_intro.set_margin_top((0 if short else 4) if layout == 'stacked' else 4 if short else 12)
+        self.hero_intro.set_margin_bottom((0 if short else 4) if layout == 'stacked' else 4 if short else 12)
+        self.hero_intro.set_margin_end(0)
+        self.hero_intro.set_spacing(4)
+        for label in (self.hero_title, self.hero_description):
+            label.set_xalign(.5 if layout == 'stacked' else 0)
+            label.set_justify(Gtk.Justification.CENTER if layout == 'stacked' else Gtk.Justification.LEFT)
+        if layout == 'stacked':
+            self.hero_title.set_text('Panelyra')
+            self.hero_description.set_text(self.tr('A second life. A second screen.', 'Вторая жизнь. Второй экран.'))
+        self.connection_art.set_visible(layout == 'glass')
+        self.connection_art.set_variant('aurora')
+        self.connection_art.set_size_request(260, 116 if short else 140)
+        self.hero.set_child_packing(self.connection_art, True, True, 0, Gtk.PackType.START)
+        self.network_content.set_border_width(10)
+        self.internet.set_compact(main_editor, horizontal=layout == 'stacked')
+
+        def column(box, widgets):
+            for widget in widgets:
+                box.pack_start(widget, False, False, 0)
+            return box
+
+        if layout == 'classic':
+            placement = [(self.hero, 0, 0, 2), (self.device_card, 0, 1, 2)]
+        elif layout == 'stacked':
+            placement = [(self.hero, 0, 0, 2), (self.device_card, 0, 1, 2)]
+            if main_editor:
+                placement += [(self.picture_card, 0, 2, 2), (self.network_card, 0, 3, 2)]
+        elif layout == 'editorial':
+            placement = [(self.hero, 0, 0, 1), (self.device_card, 1, 0, 1)]
+            if main_editor:
+                placement += [(self.picture_card, 0, 1, 1), (self.network_card, 1, 1, 1)]
+        elif layout == 'glass':
+            left = column(self.connection_left, [self.device_card] + ([self.network_card] if main_editor else []))
+            placement = [(self.hero, 0, 0, 2), (left, 0, 1, 1)]
+            if main_editor:
+                placement.append((self.picture_card, 1, 1, 1))
+        else:
+            placement = [(self.device_card, 0, 0, 1)]
+            if main_editor:
+                right = column(self.connection_right, [self.picture_card, self.network_card])
+                placement.append((right, 1, 0, 1))
+        for widget, col, row, span in placement:
+            widget.set_hexpand(True)
+            widget.set_valign(Gtk.Align.START)
+            self.connection_grid.attach(widget, col, row, span, 1)
+            widget.show_all()
+        # show_all must respect the selected design's hidden decorative parts.
+        self.device_art.set_visible(layout in ('stacked', 'studio', 'editorial', 'console'))
+        self.device_header.set_visible(layout != 'stacked')
+        self.device_header.get_children()[0].show()
+        self.device_refresh.show()
+        self.device_actions.set_visible(layout == 'stacked')
+        self.downloads.button.show()
+        self.hero_logo.set_visible(layout in ('classic', 'stacked'))
+        self.hero_eyebrow.set_visible(layout in ('classic', 'editorial'))
+        self.connection_art.set_visible(layout == 'glass')
+        self.picture_card.show_all()
+        self.picture_extra.set_visible(not main_editor)
+        self.internet.widget.show_all()
+        return False
+
     def build_settings_page(self, body):
+        self.settings_body = body
         card, connection = self.card()
+        self.settings_connection = connection
         body.pack_start(card, False, False, 0)
         connection.pack_start(self.label(('Connection', 'Подключение'), 'section-title'), False, False, 0)
         row = Gtk.Box(spacing=12)
@@ -333,6 +710,8 @@ class Launcher(Gtk.Application):
         connection.pack_start(self.internet.widget, False, False, 0)
 
         card, settings = self.card()
+        self.picture_card = self.style(card, 'picture-card')
+        self.picture_content = self.style(settings, 'picture-content')
         body.pack_start(card, False, False, 0)
         settings.pack_start(self.label(('Picture', 'Изображение'), 'section-title'), False, False, 0)
         self.profile = self.combo([
@@ -340,9 +719,10 @@ class Launcher(Gtk.Application):
             ('economy', ('Lightweight — older tablets', 'Лёгкий — для слабого планшета')),
             ('crisp', ('Crisp — detailed text', 'Чёткий — для работы с текстом')),
             ('custom', ('Custom settings', 'Свои настройки'))], self.detect_profile())
-        settings.pack_start(self.profile, False, False, 0)
-        grid = Gtk.Grid(column_spacing=14, row_spacing=7)
-        grid.set_column_homogeneous(True)
+        for renderer in self.profile.get_cells():
+            renderer.set_property('ellipsize', Pango.EllipsizeMode.END)
+            renderer.set_property('max-width-chars', 18)
+        grid = self.picture_grid = Gtk.Grid(column_spacing=14, row_spacing=7)
         settings.pack_start(grid, False, False, 0)
         self.width = Gtk.SpinButton.new_with_range(160, 2560, 2)
         self.height = Gtk.SpinButton.new_with_range(160, 2560, 2)
@@ -360,25 +740,36 @@ class Launcher(Gtk.Application):
         size_row.pack_start(self.height, True, True, 0)
         self.fps = self.combo([(str(n), (f'{n} fps · experimental', f'{n} fps · эксперимент')
                                if n == 60 else f'{n} fps') for n in (15,20,30,60)], self.settings.fps)
+        for renderer in self.fps.get_cells():
+            renderer.set_property('ellipsize', Pango.EllipsizeMode.END)
+            renderer.set_property('max-width-chars', 6)
         size_row.set_hexpand(True)
         self.fps.set_hexpand(True)
         if self.fps.get_active_id() is None:
             self.fps.append(str(self.settings.fps), f'{self.settings.fps} fps')
             self.fps.set_active_id(str(self.settings.fps))
-        grid.attach(self.label(('Resolution', 'Разрешение'), 'muted'), 0,0,1,1)
-        grid.attach(self.label(('Frame rate', 'Плавность'), 'muted'), 1,0,1,1)
-        grid.attach(size_row, 0,1,1,1)
-        grid.attach(self.fps, 1,1,1,1)
         self.controls.extend((self.width, self.height))
         self.quality = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 10,35,1)
         self.quality.set_value(self.settings.quality)
         self.quality.set_digits(0)
         self.quality.set_value_pos(Gtk.PositionType.RIGHT)
         self.localized(self.quality, 'tooltip-text', ('Lower QP means more detail and more USB traffic.', 'Меньше QP — больше деталей и трафика по USB.'))
-        settings.pack_start(self.label(('Image quality · lower is sharper', 'Качество · меньше число — чётче'), 'muted'), False, False, 0)
-        settings.pack_start(self.quality, False, False, 0)
+        self.picture_fields = []
+        for caption, widget in ((('Profile', 'Профиль'), self.profile),
+                                (('Resolution', 'Разрешение'), size_row),
+                                (('Frame rate', 'Плавность'), self.fps),
+                                (('Quality · QP', 'Качество · QP'), self.quality)):
+            field = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+            field.set_hexpand(True)
+            field.pack_start(self.label(caption, 'muted'), False, False, 0)
+            field.pack_start(widget, False, False, 0)
+            self.picture_fields.append(field)
+        # The same editor moves between Connection and Settings; drafts,
+        # sensitivity and signal handlers remain attached to these widgets.
+        self.arrange_picture_fields(False)
         self.controls.append(self.quality)
-        extra = self.localized(Gtk.Expander(), 'label', ('More options', 'Дополнительно'))
+        extra = self.picture_extra = self.localized(Gtk.Expander(), 'label', ('More options', 'Дополнительно'))
+        extra.set_no_show_all(True)
         extras = Gtk.Box(spacing=12)
         extras.set_margin_top(12)
         self.capture = Gtk.SpinButton.new_with_range(5,60,1)
@@ -388,6 +779,7 @@ class Launcher(Gtk.Application):
         self.controls.append(self.capture)
         extras.pack_start(self.label(('PC capture rate', 'Частота захвата ПК'), 'muted', True), True, True, 0)
         extras.pack_end(self.capture, False, False, 0)
+        extras.show_all()
         extra.add(extras)
         settings.pack_start(extra, False, False, 0)
 
@@ -415,28 +807,31 @@ class Launcher(Gtk.Application):
         self.autoconnect.connect('toggled',self.on_settings_changed)
 
     def build_footer(self, body):
-        footer, status_box = self.card(spacing=10)
+        footer, status_box = self.card(spacing=0)
+        self.style(footer, 'stream-footer')
+        status_box.set_border_width(12)
         body.pack_start(footer, False, False, 0)
-        line = Gtk.Box(spacing=12)
+        line = Gtk.Box(spacing=10)
         self.badge = self.style(Gtk.Label(), 'badge')
         self.badge.set_valign(Gtk.Align.CENTER)
-        line.pack_start(self.badge,False,False,0)
+        line.pack_start(self.badge, False, False, 0)
         self.status = self.label('', None, True)
         self.status.set_lines(2)
         self.status.set_ellipsize(Pango.EllipsizeMode.END)
+        self.status.set_max_width_chars(26)
         self.status.set_size_request(-1, 38)
         self.set_status(('Your next screen is one click away.', 'Ещё один экран — в одном нажатии.'))
-        line.pack_start(self.status,True,True,0)
-        status_box.pack_start(line,False,False,0)
-        actions = Gtk.Box(spacing=10)
+        line.pack_start(self.status, True, True, 0)
         self.start_button = self.style(self.localized(Gtk.Button(), 'label', ('Connect tablet','Подключить планшет')), 'primary')
+        self.start_button.set_valign(Gtk.Align.CENTER)
         self.start_button.connect('clicked',lambda _: self.start())
         self.stop_button = self.style(self.localized(Gtk.Button(), 'label', ('Stop','Остановить')), 'stop')
+        self.stop_button.set_valign(Gtk.Align.CENTER)
         self.stop_button.set_sensitive(False)
         self.stop_button.connect('clicked',lambda _: self.stop())
-        actions.pack_start(self.start_button,True,True,0)
-        actions.pack_start(self.stop_button,False,False,0)
-        status_box.pack_start(actions,False,False,0)
+        line.pack_start(self.start_button, False, False, 0)
+        line.pack_start(self.stop_button, False, False, 0)
+        status_box.pack_start(line, False, False, 0)
         bottom = Gtk.Box(spacing=12)
         bottom.pack_start(self.label(('Closing this window stops its stream.','Закрытие окна останавливает запущенную здесь передачу.'),'tiny',True),True,True,0)
         bottom.pack_end(self.label(f'v{__version__} · TanosX','muted'),False,False,0)
@@ -495,14 +890,14 @@ class Launcher(Gtk.Application):
                 text(device.name, 'device-name')
                 if device.state == 'usb-ready':
                     text(self.tr('USB tethering enabled', 'USB-модем включён'))
-                    text(device.tablet_ip or '')
+                    text(' · '.join(value for value in (device.interface, device.tablet_ip) if value))
                 elif device.state == 'usb-no-address':
                     text(self.tr('USB detected · waiting for an address', 'USB найден · ожидаем адрес'))
                 elif self.settings.transport == 'adb':
                     text(self.tr('USB detected · ADB selected', 'USB подключён · выбран режим ADB'))
                 else:
                     text(self.tr('USB detected · enable USB tethering', 'USB подключён · включите USB-модем'))
-                if device.interface:
+                if device.interface and device.state != 'usb-ready':
                     text(device.interface)
             if len(devices) > 1:
                 text(self.tr('Several devices detected. Keep the tablet you want to use connected.',
@@ -590,6 +985,36 @@ class Launcher(Gtk.Application):
             self.language_timer = None
         self.pending_language = None
 
+    def sync_theme(self):
+        """Send only an applied design to the local sender, without restarting it."""
+        if self.process is None or self.stopped:
+            return
+        self.pending_theme = self.settings.theme
+        if self.theme_timer is None and self.send_pending_theme():
+            self.theme_timer = GLib.timeout_add(100, self.send_pending_theme)
+
+    def send_pending_theme(self):
+        if self.process is not None and not self.stopped and self.pending_theme:
+            payload = (json.dumps({'theme': self.pending_theme}) + '\n').encode('ascii')
+            try:
+                # The control pipe is local to the PC; no Android protocol change.
+                os.write(self.process.stdin.fileno(), payload)
+            except BlockingIOError:
+                return True
+            except (OSError, ValueError):
+                self.append_log(self.tr(
+                    'Lock screen style saved. Reconnect the display to use it.',
+                    'Стиль заставки сохранён. Переподключите экран, чтобы применить его.'))
+        self.pending_theme = None
+        self.theme_timer = None
+        return False
+
+    def clear_pending_theme(self):
+        if self.theme_timer is not None:
+            GLib.source_remove(self.theme_timer)
+            self.theme_timer = None
+        self.pending_theme = None
+
     def on_settings_changed(self,*_):
         if self.updating:
             return
@@ -601,6 +1026,7 @@ class Launcher(Gtk.Application):
             self.updating=True
             self.profile.set_active_id(self.detect_profile())
             self.updating=False
+            self.update_overview()
             if hasattr(self,'status') and self.process is None and self.external_timer is None:
                 self.set_status(('Your settings are saved. Ready to connect.', 'Настройки сохранены. Можно подключить планшет.'))
         except (OSError,ValueError) as error:
@@ -658,7 +1084,8 @@ class Launcher(Gtk.Application):
             env['PATH']=str(local_adb)+os.pathsep+env.get('PATH','')
         try:
             self.process=subprocess.Popen([sys.executable,'-m','usbdisplay',*self.settings.command_args(),
-                '--json-events','--language',resolve_language(self.settings.language),'--control-stdin'],
+                '--json-events','--language',resolve_language(self.settings.language),
+                '--theme',self.settings.theme,'--control-stdin'],
                 cwd=PROJECT,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,
                 encoding='utf-8',errors='replace',env=env)
         except OSError as error:
@@ -712,6 +1139,7 @@ class Launcher(Gtk.Application):
             return
         self.stopped=True
         self.clear_pending_language()
+        self.clear_pending_theme()
         self.set_status(('Stopping the stream…','Останавливаем передачу…'),'busy')
         self.stop_button.set_sensitive(False)
         if self.process.poll() is None:
@@ -730,6 +1158,7 @@ class Launcher(Gtk.Application):
         if process is not self.process:
             return False
         self.clear_pending_language()
+        self.clear_pending_theme()
         if process.stdin is not None:
             try: process.stdin.close()
             except OSError: pass
@@ -749,7 +1178,11 @@ class Launcher(Gtk.Application):
         return False
 
     def on_close(self,*_):
+        self.appearance.close()
         self.closing=True
+        if self.layout_source is not None:
+            GLib.source_remove(self.layout_source)
+            self.layout_source = None
         self.window_geometry.close()
         self.notifications.close()
         self.downloads.close()
@@ -771,11 +1204,13 @@ class Launcher(Gtk.Application):
                              'Дайте Android-планшету вторую жизнь в роли экрана Linux.'),
             authors=['TanosX'],copyright='© 2026 TanosX',license_type=Gtk.License.MIT_X11)
         dialog.set_logo(self.window.get_icon())
+        self.style_theme(dialog)
         dialog.run(); dialog.destroy()
 
     def help(self,*_):
         dialog=Gtk.MessageDialog(transient_for=self.window,modal=True,buttons=Gtk.ButtonsType.CLOSE,
             message_type=Gtk.MessageType.INFO,text=self.tr('One cable. Two screens.','Один кабель. Два экрана.'))
+        self.style_theme(dialog)
         dialog.format_secondary_text(self.tr(
             '1. Install the Panelyra Android APK.\n2. Connect a data-capable USB cable and enable USB tethering.\n3. Open Panelyra on Android, then click Connect tablet.\n\nArrange the new screen in GNOME Settings → Displays. USB debugging is only needed for the optional ADB mode.\n\nSupported desktop: GNOME on Wayland. No audio or tablet touch input yet.',
             '1. Установите APK Panelyra на Android.\n2. Подключите USB-кабель с передачей данных и включите USB-модем.\n3. Откройте Panelyra на Android и нажмите «Подключить планшет».\n\nРасположите новый экран в «Настройки GNOME → Дисплеи». Отладка USB нужна только для дополнительного режима ADB.\n\nПоддерживается GNOME Wayland. Звук и касания планшета пока не передаются.'))

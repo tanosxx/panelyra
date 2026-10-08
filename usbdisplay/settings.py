@@ -7,6 +7,7 @@ from pathlib import Path
 import tempfile
 
 from .protocol import validate_mode
+from .themes import DEFAULT_THEME, THEME_IDS
 
 
 PRESETS = {
@@ -26,6 +27,7 @@ class Settings:
     transport: str = "usb"
     auto_connect: bool = True
     language: str = "auto"
+    theme: str = DEFAULT_THEME
     apk_path: str = ""
     apk_port: int = 8765
     apk_duration: int = 1800
@@ -44,6 +46,8 @@ class Settings:
             raise ValueError("Unknown transport")
         if self.language not in ("auto", "en", "ru"):
             raise ValueError("Unknown language")
+        if not isinstance(self.theme, str) or self.theme not in THEME_IDS:
+            raise ValueError("Unknown appearance theme")
         if type(self.auto_connect) is not bool:
             raise ValueError("auto_connect must be a boolean")
         if type(self.apk_port) is not int or not 1024 <= self.apk_port <= 65535:
@@ -77,7 +81,13 @@ def load(path=None):
         if not isinstance(content, dict):
             raise ValueError("Preferences must be a JSON object")
         known = {field.name for field in fields(Settings)}
-        return Settings(**{key: value for key, value in content.items() if key in known}).validate(), None
+        values = {key: value for key, value in content.items() if key in known}
+        warning = None
+        theme = values.get("theme", DEFAULT_THEME)
+        if not isinstance(theme, str) or theme not in THEME_IDS:
+            values["theme"] = DEFAULT_THEME
+            warning = "Unknown appearance theme; using Classic"
+        return Settings(**values).validate(), warning
     except FileNotFoundError:
         return Settings(), None
     except (ValueError, TypeError, OSError) as error:

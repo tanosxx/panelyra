@@ -14,6 +14,7 @@ from .protocol import validate_mode
 from . import network
 from .download import default_apk, serve_apk
 from .language import LanguageSync
+from .themes import DEFAULT_THEME, THEME_IDS
 
 
 def choose_transport(args):
@@ -136,6 +137,8 @@ def build_parser():
     start.add_argument('--json-events', action='store_true', help='emit structured lifecycle events for frontends')
     start.add_argument('--language', choices=('auto', 'en', 'ru'), default=None,
                        help='set Android UI language; auto follows the PC system language')
+    start.add_argument('--theme', choices=THEME_IDS, default=DEFAULT_THEME,
+                       help='desktop lock screen theme')
     start.add_argument('--control-stdin', action='store_true', help=argparse.SUPPRESS)
     return parser
 
@@ -203,31 +206,31 @@ def main(argv=None):
         with runtime.cancel_on_term(), runtime.Instance(mode):
             transport, link = choose_transport(args)
             event('connecting', transport=transport, **mode)
-            def stream(connection):
-                return Stream(connection, args.width, args.height, args.fps, args.bitrate,
+            def stream(connection, **transport_options):
+                # Install local callbacks before the stdin reader can run.
+                sender = Stream(connection, args.width, args.height, args.fps, args.bitrate,
                               args.test_pattern, args.duration,
                               cursor_workaround=not args.no_cursor_workaround,
                               quality=args.quality if args.rate_control == 'quality' else None,
                               stats_interval=5 if args.stats else 0,
                               capture_fps=args.capture_fps,
                               language=args.language,
-                              on_status=lambda state: event(state)).run()
-            def language_sync(**transport_options):
-                return LanguageSync(args.language, **transport_options,
-                                    input_stream=sys.stdin if args.control_stdin else None,
-                                    on_result=lambda language, synced:
-                                    event('language', language=language, synced=synced))
+                              theme=args.theme,
+                              on_status=lambda state: event(state))
+                with LanguageSync(args.language, **transport_options,
+                                  input_stream=sys.stdin if args.control_stdin else None,
+                                  on_theme=sender.set_theme, on_language=sender.set_language,
+                                  on_result=lambda language, synced:
+                                  event('language', language=language, synced=synced)) as languages:
+                    languages.start()
+                    sender.run()
             if transport == 'usb':
                 with network.connect(link, args.wait) as connection:
-                    with language_sync(link=link) as languages:
-                        languages.start()
-                        stream(connection)
+                    stream(connection, link=link)
             else:
                 with Tunnel(args.serial) as tunnel:
-                    with language_sync(serial=tunnel.serial) as languages:
-                        with tunnel.connect(launch=not args.no_launch) as connection:
-                            languages.start()
-                            stream(connection)
+                    with tunnel.connect(launch=not args.no_launch) as connection:
+                        stream(connection, serial=tunnel.serial)
             event('stopped')
     except (RuntimeError, ValueError, OSError) as error:
         if getattr(args, 'json_events', False):

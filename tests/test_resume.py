@@ -41,7 +41,7 @@ class ResumeTests(unittest.TestCase):
             parse_launch=Mock(side_effect=self.make_pipeline))
         self.addCleanup(patch.stopall)
         patch("usbdisplay.host.load_gi", return_value=(self.Gio, self.GLib, self.Gst)).start()
-        patch("usbdisplay.host.prepare_lock_scene", return_value=None).start()
+        self.prepare_scene = patch("usbdisplay.host.prepare_lock_scene", return_value=None).start()
         patch("usbdisplay.resume.time.monotonic", side_effect=lambda: self.now).start()
         patch("usbdisplay.host.select.select", return_value=([], [], [])).start()
         self.output = io.StringIO()
@@ -125,6 +125,48 @@ class ResumeTests(unittest.TestCase):
         self.Gst.parse_launch.assert_called_once()
         self.status.assert_called_once_with("locked")
         self.assertFalse(self.stream.stopping.is_set())
+
+    def test_theme_and_language_updates_only_affect_next_lock_scene(self):
+        desktop = self.stream.pipeline
+        self.stream.set_theme('aurora')
+        self.stream.set_language('en')
+        self.assertIs(self.stream.pipeline, desktop)
+        self.Gst.parse_launch.assert_not_called()
+        self.connection.sendall.assert_not_called()
+        self.connection.shutdown.assert_not_called()
+        self.lock()
+        self.prepare_scene.assert_called_once_with(1280, 800, self.Gst, 'en', theme='aurora')
+        placeholder = self.stream.pipeline
+        self.stream.set_theme('editorial')
+        self.stream.set_language('ru')
+        self.assertIs(self.stream.pipeline, placeholder)
+        self.assertEqual(self.Gst.parse_launch.call_count, 1)
+        self.assertEqual(self.prepare_scene.call_count, 1)
+        self.unlock()
+        self.lock()
+        self.prepare_scene.assert_called_with(1280, 800, self.Gst, 'ru', theme='editorial')
+        self.assertFalse(self.stream.stopping.is_set())
+
+    def test_invalid_theme_does_not_change_capture_or_saved_theme(self):
+        desktop = self.stream.pipeline
+        self.assertEqual(self.stream.theme, 'classic')
+        for theme in ('unknown', None, [], {'theme': 'aurora'}):
+            with self.subTest(theme=theme), self.assertRaises(ValueError):
+                self.stream.set_theme(theme)
+        self.assertEqual(self.stream.theme, 'classic')
+        self.assertIs(self.stream.pipeline, desktop)
+        self.Gst.parse_launch.assert_not_called()
+        self.connection.sendall.assert_not_called()
+
+    def test_initial_selected_theme_is_used_when_starting_while_locked(self):
+        stream = LockResumingStream(self.connection, 1280, 800, 30, 2500,
+                                    theme='midnight', language='ru')
+        watcher = Mock()
+        watcher.start.return_value = True
+        with patch('usbdisplay.resume.ScreenLock', return_value=watcher):
+            stream.create_monitor()
+        self.prepare_scene.assert_called_once_with(1280, 800, self.Gst, 'ru', theme='midnight')
+        self.assertEqual(stream.phase, 'locked')
 
     def test_polling_recovers_missed_lock_and_unlock_notifications(self):
         self.stream.capture_failed("Closed")

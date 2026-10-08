@@ -162,7 +162,7 @@ class LauncherLanguageTests(unittest.TestCase):
         self.assertEqual(json.loads(reader.read()), {"language": "ru"})
 
     def test_start_passes_resolved_pc_language_and_opens_live_control_pipe(self):
-        app = self.make_app(Settings(language="auto"))
+        app = self.make_app(Settings(language="auto", theme="graphite"))
         process, _ = self.make_process()
         with patch.dict(os.environ, {"LANGUAGE": "ru_RU:en"}), \
                 patch.object(launcher, "running_stream", return_value=None), \
@@ -171,6 +171,7 @@ class LauncherLanguageTests(unittest.TestCase):
             app.start()
         arguments = popen.call_args.args[0]
         self.assertEqual(arguments[arguments.index('--language') + 1], 'ru')
+        self.assertEqual(arguments[arguments.index('--theme') + 1], 'graphite')
         self.assertIn('--control-stdin', arguments)
         self.assertEqual(popen.call_args.kwargs['stdin'], launcher.subprocess.PIPE)
         self.assertFalse(os.get_blocking(process.stdin.fileno()))
@@ -237,7 +238,8 @@ class LauncherLanguageTests(unittest.TestCase):
                 app.language.set_active_id(language)
                 labels = self.labels(app.device_rows)
                 self.assertIn("Lenovo TB-X606X", labels)
-                self.assertIn("192.168.42.129", labels)
+                # The compact device row combines link identity and address.
+                self.assertIn("enx-test · 192.168.42.129", labels)
                 self.assertIn("USB-модем включён" if language == "ru" else "USB tethering enabled", labels)
                 self.assertTrue(app.device_scan_running)
                 self.assertEqual(len(app.translations), bindings)

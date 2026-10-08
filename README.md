@@ -16,22 +16,85 @@ CLI share the same video engine; a small Android app receives the picture.
 - A direct USB connection through **USB tethering**, without root, Wi-Fi or USB debugging.
 - Optional ADB transport for devices with USB debugging enabled.
 - Linux controls for resolution, frame rate and quality, plus CLI diagnostics.
+- A dedicated **Appearance** page with five alternative desktop designs and the
+  **Panelyra original** look. Preview colors and layout before saving your choice.
 - English/Russian Android interface follows the Linux app's language; before its
   first sync, it follows the tablet's system language.
 - H.264 video decoded through Android MediaCodec, with bounded queues to limit latency.
 - No account, cloud relay, advertising or telemetry.
 - Automatic display reconnection after unlocking GNOME, with an animated local
-  lock screen: a glowing orb, drifting particles and the PC's local clock.
+  lock screen matching the selected design, with the PC's local clock.
 - Optional GNOME 50 extension to return still-open tablet windows after unlocking.
 - One-button control of Internet access through the tablet, without stopping the
   USB display. The previous route and DNS settings can be restored.
 - A Linux notification bell for new versions and developer news, with optional
   GitHub checks once the public source is configured.
 
-![Panelyra on Linux — Connection tab](docs/images/linux-en.png)
+![Panelyra on Linux — Connection in Aurora glass](docs/images/linux-en.png)
 
-The **Connection** tab keeps tablet details, connection help and the log together.
-Screenshots use sample device values.
+The **Aurora glass** design, with picture and Internet controls on **Connection**.
+The default remains **Panelyra original**. These are screenshots of the GTK
+application using sample device values; the lock-screen images below use an
+example clock time and show still frames of the animations.
+
+Open **Appearance** to try Light minimal, Dark studio, Aurora glass,
+Warm editorial or Graphite console, or keep Panelyra original. Selecting a design previews
+the Linux window immediately; **Apply** saves it, while **Cancel** or leaving the
+page restores the saved design. Select **Lock screen** beside **Interface** to see
+each design's distinct animated scene. Applying it also sets the tablet's next lock screen, without stopping
+the stream or updating Android. See the [appearance guide](docs/usage.md#appearance).
+
+<details>
+<summary>Six designs and their animated lock screens</summary>
+
+Each design has its own composition, navigation and illustration. Open an image
+to see it at full size.
+
+<table>
+  <tr><th>Linux window</th><th>Lock-screen scene</th></tr>
+  <tr>
+    <td><strong>Panelyra original</strong><br>Original cards and top navigation<br><a href="docs/images/linux-theme-classic-en.png"><img src="docs/images/linux-theme-classic-en.png" width="360" alt="Panelyra original — Connection"></a></td>
+    <td><strong>Orbit</strong><br>Planet, moon and star trails<br><a href="docs/images/lock-classic-en.png"><img src="docs/images/lock-classic-en.png" width="360" alt="Panelyra original — orbital lock scene"></a></td>
+  </tr>
+  <tr>
+    <td><strong>Light minimal</strong><br>Centered heading and airy controls<br><a href="docs/images/linux-theme-light-en.png"><img src="docs/images/linux-theme-light-en.png" width="360" alt="Light minimal — Connection"></a></td>
+    <td><strong>Paper mobile</strong><br>Floating shapes and soft shadows<br><a href="docs/images/lock-light-en.png"><img src="docs/images/lock-light-en.png" width="360" alt="Light minimal — kinetic paper lock scene"></a></td>
+  </tr>
+  <tr>
+    <td><strong>Dark studio</strong><br>Navy sidebar and device workspace<br><a href="docs/images/linux-theme-midnight-en.png"><img src="docs/images/linux-theme-midnight-en.png" width="360" alt="Dark studio — Connection"></a></td>
+    <td><strong>Light studio</strong><br>Violet columns and a moving horizon<br><a href="docs/images/lock-midnight-en.png"><img src="docs/images/lock-midnight-en.png" width="360" alt="Dark studio — light-column lock scene"></a></td>
+  </tr>
+  <tr>
+    <td><strong>Aurora glass</strong><br>Mint/lilac artwork and glass panels<br><a href="docs/images/linux-theme-aurora-en.png"><img src="docs/images/linux-theme-aurora-en.png" width="360" alt="Aurora glass — Connection"></a></td>
+    <td><strong>Aurora landscape</strong><br>Flowing light above layered hills<br><a href="docs/images/lock-aurora-en.png"><img src="docs/images/lock-aurora-en.png" width="360" alt="Aurora glass — aurora landscape lock scene"></a></td>
+  </tr>
+  <tr>
+    <td><strong>Warm editorial</strong><br>Large type, cream and charcoal<br><a href="docs/images/linux-theme-editorial-en.png"><img src="docs/images/linux-theme-editorial-en.png" width="360" alt="Warm editorial — Connection"></a></td>
+    <td><strong>Analog pause</strong><br>Paper texture and an animated clock<br><a href="docs/images/lock-editorial-en.png"><img src="docs/images/lock-editorial-en.png" width="360" alt="Warm editorial — analog clock lock scene"></a></td>
+  </tr>
+  <tr>
+    <td><strong>Graphite console</strong><br>Tablet panel and compact controls<br><a href="docs/images/linux-theme-graphite-en.png"><img src="docs/images/linux-theme-graphite-en.png" width="360" alt="Graphite console — Connection"></a></td>
+    <td><strong>Circuit grid</strong><br>Lime pulses across a perspective grid<br><a href="docs/images/lock-graphite-en.png"><img src="docs/images/lock-graphite-en.png" width="360" alt="Graphite console — circuit grid lock scene"></a></td>
+  </tr>
+</table>
+
+</details>
+
+<details>
+<summary>Appearance: preview the interface and lock animation</summary>
+
+Choose a design, compare its **Interface** and **Lock screen** previews, then
+click **Apply**. The lock-screen preview animates inside the chooser.
+
+<table>
+  <tr><th>Interface preview</th><th>Live lock-screen preview</th></tr>
+  <tr>
+    <td><a href="docs/images/linux-appearance-en.png"><img src="docs/images/linux-appearance-en.png" width="360" alt="Appearance — interface preview"></a></td>
+    <td><a href="docs/images/linux-appearance-lock-en.png"><img src="docs/images/linux-appearance-lock-en.png" width="360" alt="Appearance — lock-screen preview"></a></td>
+  </tr>
+</table>
+
+</details>
 
 <details>
 <summary>Explore settings and Android app installation</summary>

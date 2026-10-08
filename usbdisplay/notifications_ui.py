@@ -6,10 +6,12 @@ from pathlib import Path
 
 import gi
 gi.require_version('Gtk', '3.0')
-from gi.repository import GLib, Gtk, Pango
+gi.require_version('GdkPixbuf', '2.0')
+from gi.repository import GdkPixbuf, GLib, Gtk, Pango
 
 from . import __version__
 from .notifications import Store, fetch_notices, load_source
+from .themes import get_theme
 
 CHECK_INTERVAL = 6 * 60 * 60
 RETRY_INTERVAL = 15 * 60
@@ -29,7 +31,10 @@ class NotificationCenter:
         self.button = Gtk.MenuButton()
         box = Gtk.Box(spacing=6)
         icon = Path(__file__).resolve().parent / 'assets/panelyra-bell.svg'
-        box.pack_start(Gtk.Image.new_from_file(str(icon)), False, False, 0)
+        self.icon_source = icon.read_text(encoding='utf-8')
+        self.icon = Gtk.Image()
+        self.set_theme(getattr(app, 'visual_theme', 'classic'))
+        box.pack_start(self.icon, False, False, 0)
         self.counter = Gtk.Label()
         self.counter.get_style_context().add_class('notification-count')
         self.counter.set_no_show_all(True)
@@ -73,6 +78,15 @@ class NotificationCenter:
 
     def tr(self, english, russian):
         return self.app.tr(english, russian)
+
+    def set_theme(self, theme_id):
+        # This custom outline icon is not a symbolic system icon. Recolor its
+        # stroke so it stays visible on both light and dark title bars.
+        foreground = '#faf8f2' if theme_id == 'editorial' else get_theme(theme_id).colors['text']
+        loader = GdkPixbuf.PixbufLoader.new_with_type('svg')
+        loader.write(self.icon_source.replace('#f5f7fc', foreground).encode('utf-8'))
+        loader.close()
+        self.icon.set_from_pixbuf(loader.get_pixbuf())
 
     @staticmethod
     def label(text, style=None):

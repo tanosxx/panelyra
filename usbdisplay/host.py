@@ -8,6 +8,8 @@ import time
 
 from .protocol import frame_header, hello
 from .cursor import CursorWorkaround
+from .language import resolve_language
+from .themes import DEFAULT_THEME, THEME_IDS
 
 
 def load_gi():
@@ -68,7 +70,7 @@ def pipeline_description(width, height, fps, bitrate, node=None, quality=None, c
     )
 
 
-def prepare_lock_scene(width, height, Gst, language=None):
+def prepare_lock_scene(width, height, Gst, language=None, theme=DEFAULT_THEME):
     """Optional decoration must never prevent the existing lock recovery."""
     try:
         import gi
@@ -76,7 +78,7 @@ def prepare_lock_scene(width, height, Gst, language=None):
         from .lockscreen import LockScene
         if Gst.ElementFactory.find("cairooverlay") is None:
             raise RuntimeError("cairooverlay is unavailable")
-        return LockScene(width, height, language)
+        return LockScene(width, height, language, theme=theme)
     except Exception as error:
         # Cairo surface/context errors are not RuntimeError subclasses. A
         # failure anywhere in optional decoration must retain the static path.
@@ -87,7 +89,7 @@ def prepare_lock_scene(width, height, Gst, language=None):
 class Stream:
     def __init__(self, connection, width, height, fps, bitrate, test_pattern=False, duration=0,
                  cursor_workaround=True, quality=None, stats_interval=0, capture_fps=None,
-                 on_status=None, language=None):
+                 on_status=None, language=None, theme=DEFAULT_THEME):
         self.Gio, self.GLib, self.Gst = load_gi()
         self.connection = connection
         self.width, self.height, self.fps = width, height, fps
@@ -124,8 +126,19 @@ class Stream:
         self.cursor_ready_reported = False
         self.on_status = on_status
         self.language = language
+        self.set_theme(theme)
         self.monitors_before = set()
         self.monitor_wait_started = None
+
+    def set_theme(self, theme):
+        """Remember the theme for the next lock scene without altering capture."""
+        if not isinstance(theme, str) or theme not in THEME_IDS:
+            raise ValueError('Unknown lock screen theme')
+        self.theme = theme
+
+    def set_language(self, language):
+        """Keep local lock text current independently of the Android listener."""
+        self.language = resolve_language(language)
 
     def monitor_state(self):
         return self.dbus.call_sync(
@@ -227,7 +240,9 @@ class Stream:
         self.keeper_frames += 1
 
     def start_pipeline(self, node=None, *, lock_screen=False):
-        scene = prepare_lock_scene(self.width, self.height, self.Gst, self.language) if lock_screen else None
+        scene = (prepare_lock_scene(self.width, self.height, self.Gst,
+                                    self.language, theme=self.theme)
+                 if lock_screen else None)
         self.first_pts = None
         self.pts_offset_us = (0 if self.last_pts_us < 0 else
                               max(self.last_pts_us + 1,
